@@ -1,0 +1,68 @@
+{
+  "r2_score": 0.6594,
+  "mae_eur": 25164.0,
+  "rmse_eur": 32971.0,
+  "training_samples": 160,
+  "feature_importance": [
+    {
+      "feature": "Household Income",
+      "importance": 0.6694
+    },
+    {
+      "feature": "GDP per Capita",
+      "importance": 0.0848
+    },
+    {
+      "feature": "Store Size",
+      "importance": 0.0642
+    },
+    {
+      "feature": "Competitor Density",
+      "importance": 0.0351
+    },
+    {
+      "feature": "Foot Traffic",
+      "importance": 0.0342
+    },
+    {
+      "feature": "Tourist Index",
+      "importance": 0.0203
+    },
+    {
+      "feature": "Public Transport",
+      "importance": 0.019
+    },
+    {
+      "feature": "Retail Rent",
+      "importance": 0.0147
+    },
+    {
+      "feature": "Population Density",
+      "importance": 0.0116
+    },
+    {
+      "feature": "E-commerce Penetration",
+      "importance": 0.0113
+    },
+    {
+      "feature": "Mall vs Street",
+      "importance": 0.0099
+    },
+    {
+      "feature": "Median Age",
+      "importance": 0.0099
+    },
+    {
+      "feature": "Population",
+      "importance": 0.008
+    },
+    {
+      "feature": "Luxury Retail Proximity",
+      "importance": 0.0056
+    },
+    {
+      "feature": "City Tier",
+      "importance": 0.0021
+    }
+  ]
+}
