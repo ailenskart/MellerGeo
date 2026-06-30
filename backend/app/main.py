@@ -28,6 +28,7 @@ from app.catchment import analyze_city_catchments, analyze_city_streets
 from app.data_generator import get_city_features
 from app.meller_stores import BRAND, get_all_stores, get_stores_for_city
 from app.predictor import RevenuePredictor
+from app.seasonality import compute_monthly_revenue, get_market_insights
 from app.schemas import (
     BatchPredictRequest,
     ChatRequest,
