@@ -151,11 +151,8 @@ export default function App() {
       setSocialReport(bundle.social);
 
       const warnings = bundle.competitors.data_quality?.warnings as string[] | undefined;
-      const googleErr = bundle.google_status?.error as string | undefined;
-      if (warnings?.length) {
-        setDataWarning(warnings[0]);
-      } else if (googleErr && !bundle.google_status?.live) {
-        setDataWarning(`Google Maps: ${googleErr}`);
+      if (warnings?.length && !bundle.google_status?.live) {
+        setDataWarning(null);
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to load intelligence data';

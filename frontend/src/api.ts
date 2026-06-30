@@ -294,6 +294,9 @@ export interface HealthStatus {
   openai_enabled: boolean;
   google_maps_enabled: boolean;
   google_maps_live?: boolean;
+  osm_live?: boolean;
+  maps_live?: boolean;
+  maps_live_source?: string | null;
   google_api_error?: string | null;
   google_enable_url?: string | null;
   google_fix_instructions?: string | null;

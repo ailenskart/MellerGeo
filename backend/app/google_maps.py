@@ -14,7 +14,10 @@ PLACES_NEW_BASE = "https://places.googleapis.com/v1"
 _google_api_status: dict[str, Any] = {
     "configured": bool(GOOGLE_MAPS_API_KEY),
     "live": False,
-    "api_used": "places_new",
+    "google_live": False,
+    "osm_live": False,
+    "live_source": None,
+    "api_used": None,
     "error": None,
     "enable_url": "https://console.cloud.google.com/apis/library/places.googleapis.com",
     "fix_instructions": None,
@@ -69,64 +72,78 @@ def _friendly_error(raw: str) -> str:
 
 
 async def probe_google_maps_api() -> dict[str, Any]:
-    """Check Places API (New) on startup and cache status for the UI."""
-    if not GOOGLE_MAPS_API_KEY:
-        _google_api_status.update({
-            "configured": False,
-            "live": False,
-            "error": "GOOGLE_MAPS_API_KEY not set",
-            "fix_instructions": "Add your API key to backend/.env or Render environment variables.",
-        })
-        return get_google_api_status()
+    """Check map data sources on startup — Google first, then OpenStreetMap fallback."""
+    from app.osm_places import probe_osm_api
 
-    try:
-        async with httpx.AsyncClient(timeout=15) as client:
-            resp = await client.post(
-                f"{PLACES_NEW_BASE}/places:searchText",
-                headers={
-                    "Content-Type": "application/json",
-                    "X-Goog-Api-Key": GOOGLE_MAPS_API_KEY,
-                    "X-Goog-FieldMask": "places.id",
-                },
-                json={
-                    "textQuery": "sunglasses store Barcelona",
-                    "locationBias": {
-                        "circle": {
-                            "center": {"latitude": 41.3851, "longitude": 2.1734},
-                            "radius": 1000.0,
-                        }
+    google_ok = False
+    if GOOGLE_MAPS_API_KEY:
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                resp = await client.post(
+                    f"{PLACES_NEW_BASE}/places:searchText",
+                    headers={
+                        "Content-Type": "application/json",
+                        "X-Goog-Api-Key": GOOGLE_MAPS_API_KEY,
+                        "X-Goog-FieldMask": "places.id",
                     },
-                },
-            )
-            if resp.status_code == 200:
-                _google_api_status.update({
-                    "configured": True,
-                    "live": True,
-                    "api_used": "places_new",
-                    "error": None,
-                    "enable_url": _parse_enable_url(""),
-                    "fix_instructions": None,
-                })
-            else:
+                    json={
+                        "textQuery": "sunglasses store Barcelona",
+                        "locationBias": {
+                            "circle": {
+                                "center": {"latitude": 41.3851, "longitude": 2.1734},
+                                "radius": 1000.0,
+                            }
+                        },
+                    },
+                )
+                if resp.status_code == 200:
+                    google_ok = True
+                    _google_api_status.update({
+                        "configured": True,
+                        "live": True,
+                        "google_live": True,
+                        "osm_live": False,
+                        "live_source": "google",
+                        "api_used": "places_new",
+                        "error": None,
+                        "fix_instructions": None,
+                    })
+                    return get_google_api_status()
                 raw = resp.json().get("error", {}).get("message", resp.text[:200])
                 _google_api_status.update({
                     "configured": True,
-                    "live": False,
-                    "api_used": "places_new",
+                    "google_live": False,
                     "error": _friendly_error(raw),
                     "enable_url": _parse_enable_url(raw),
-                    "fix_instructions": (
-                        "1. Open the Enable link below\n"
-                        "2. Click ENABLE on Places API (New)\n"
-                        "3. Wait 2–5 minutes, then refresh this app"
-                    ),
                 })
-    except Exception as exc:
+        except Exception as exc:
+            _google_api_status.update({"configured": True, "google_live": False, "error": str(exc)})
+    else:
         _google_api_status.update({
-            "configured": True,
+            "configured": False,
+            "error": None,
+        })
+
+    osm_ok = await probe_osm_api()
+    if osm_ok:
+        _google_api_status.update({
+            "live": True,
+            "osm_live": True,
+            "live_source": "openstreetmap",
+            "api_used": "osm",
+            "error": None,
+            "fix_instructions": None,
+        })
+    else:
+        _google_api_status.update({
             "live": False,
-            "error": str(exc),
-            "fix_instructions": "Check your API key and network connection.",
+            "osm_live": False,
+            "live_source": None,
+            "api_used": None,
+            "fix_instructions": (
+                "Using estimated data. Enable Places API (New) in Google Cloud for Google live data."
+                if GOOGLE_MAPS_API_KEY else None
+            ),
         })
 
     return get_google_api_status()
@@ -138,12 +155,23 @@ async def search_places(
     longitude: float,
     radius_m: int = 5000,
 ) -> list[dict[str, Any]]:
-    if not GOOGLE_MAPS_API_KEY:
-        return _mock_places(query, latitude, longitude)
+    from app.osm_places import search_osm_places
 
-    places = await _search_places_new(query, latitude, longitude, radius_m)
-    if places is not None:
-        return places
+    if GOOGLE_MAPS_API_KEY:
+        places = await _search_places_new(query, latitude, longitude, radius_m)
+        if places is not None and places:
+            return places
+
+    osm_places = await search_osm_places(query, latitude, longitude, radius_m=min(radius_m, 3000))
+    if osm_places:
+        _google_api_status.update({
+            "live": True,
+            "osm_live": True,
+            "live_source": "openstreetmap",
+            "api_used": "osm",
+            "error": None,
+        })
+        return osm_places
 
     return _mock_places(query, latitude, longitude)
 
@@ -172,25 +200,27 @@ async def _search_places_new(
             )
             if resp.status_code != 200:
                 raw = resp.json().get("error", {}).get("message", resp.text[:200])
-                _google_api_status.update({
-                    "configured": True,
-                    "live": False,
-                    "api_used": "places_new",
-                    "error": _friendly_error(raw),
-                    "enable_url": _parse_enable_url(raw),
-                    "fix_instructions": (
-                        "Enable Places API (New) in Google Cloud Console, then wait 2–5 minutes."
-                    ),
-                })
+                if not _google_api_status.get("osm_live"):
+                    _google_api_status.update({
+                        "configured": True,
+                        "live": False,
+                        "google_live": False,
+                        "api_used": "places_new",
+                        "error": _friendly_error(raw),
+                        "enable_url": _parse_enable_url(raw),
+                    })
                 return None
 
             results = [_format_place_new(p) for p in resp.json().get("places", [])]
-            _google_api_status.update({
-                "configured": True,
-                "live": True,
-                "api_used": "places_new",
-                "error": None,
-            })
+            if results:
+                _google_api_status.update({
+                    "configured": True,
+                    "live": True,
+                    "google_live": True,
+                    "live_source": "google",
+                    "api_used": "places_new",
+                    "error": None,
+                })
             return results
     except Exception as exc:
         _google_api_status.update({
@@ -230,13 +260,13 @@ async def find_meller_stores(latitude: float, longitude: float, city: str | None
         if official:
             return [_official_store_to_place(s) for s in official]
 
-    if GOOGLE_MAPS_API_KEY and _google_api_status.get("live"):
+    if _google_api_status.get("live") or GOOGLE_MAPS_API_KEY:
         results = []
         seen_ids: set[str] = set()
-        for query in MELLER_SEARCH_QUERIES:
-            places = await search_places(query, latitude, longitude, radius_m=50000)
+        for q in MELLER_SEARCH_QUERIES:
+            places = await search_places(q, latitude, longitude, radius_m=50000)
             for place in places:
-                if place["place_id"] not in seen_ids and place.get("data_source") == "google_live":
+                if place["place_id"] not in seen_ids and place.get("data_source") in ("google_live", "osm_live"):
                     seen_ids.add(place["place_id"])
                     results.append(place)
         if results:
