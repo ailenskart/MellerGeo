@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.chat_service import chat
+from app.catchment import analyze_city_catchments, analyze_city_streets
 from app.competitors import analyze_competitors
 from app.data_generator import get_city_features
 from app.google_maps import find_meller_stores, find_nearby_competitors, geocode_address
@@ -17,7 +18,10 @@ from app.schemas import (
     BatchPredictRequest,
     ChatRequest,
     ChatResponse,
+    CityDetailAnalysis,
+    CatchmentArea,
     CityLocation,
+    StreetLocation,
     CompetitorAnalysis,
     GeoParameters,
     ModelMetrics,
@@ -150,6 +154,38 @@ def predict_revenue(params: GeoParameters):
 def predict_city(city_id: str, store_size_sqm: float = 80):
     city = _get_city(city_id)
     return _predict_for_city(city, store_size_sqm)
+
+
+@app.get("/api/cities/{city_id}/detail", response_model=CityDetailAnalysis)
+def get_city_detail(city_id: str, store_size_sqm: float = 80):
+    city = _get_city(city_id)
+    catchments = analyze_city_catchments(city, store_size_sqm, predictor)
+    streets = analyze_city_streets(city, store_size_sqm, predictor)
+    return CityDetailAnalysis(
+        city=city["city"],
+        country=city["country"],
+        city_id=city_id,
+        catchments=catchments,
+        streets=streets,
+        top_catchment=catchments[0] if catchments else None,
+        top_street=streets[0] if streets else None,
+    )
+
+
+@app.get("/api/cities/{city_id}/catchments", response_model=list[CatchmentArea])
+def get_city_catchments(city_id: str, store_size_sqm: float = 80):
+    city = _get_city(city_id)
+    return analyze_city_catchments(city, store_size_sqm, predictor)
+
+
+@app.get("/api/cities/{city_id}/streets", response_model=list[StreetLocation])
+def get_city_streets(
+    city_id: str,
+    store_size_sqm: float = 80,
+    catchment_id: str | None = None,
+):
+    city = _get_city(city_id)
+    return analyze_city_streets(city, store_size_sqm, predictor, catchment_id)
 
 
 @app.get("/api/cities/{city_id}/competitors", response_model=CompetitorAnalysis)

@@ -1,16 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import ChatPanel from './components/ChatPanel';
+import CityDetailMap from './components/CityDetailMap';
 import EuropeMap from './components/EuropeMap';
+import LocationPanel from './components/LocationPanel';
 import MarketPanel from './components/MarketPanel';
 import Sidebar from './components/Sidebar';
 import {
   batchPredict,
+  fetchCityDetail,
   fetchCompetitors,
   fetchHealth,
   fetchMetrics,
   fetchSeasonality,
   fetchStores,
   predictCity,
+  type CatchmentArea,
+  type CityDetailAnalysis,
   type CityLocation,
   type CompetitorAnalysis,
   type HealthStatus,
@@ -18,9 +23,11 @@ import {
   type RevenuePrediction,
   type SeasonalityAnalysis,
   type StoreLookupResult,
+  type StreetLocation,
 } from './api';
 
-type Tab = 'analysis' | 'market' | 'chat';
+type Tab = 'analysis' | 'locations' | 'market' | 'chat';
+type MapMode = 'europe' | 'city';
 
 export default function App() {
   const [cities, setCities] = useState<CityLocation[]>([]);
@@ -31,8 +38,13 @@ export default function App() {
   const [competitors, setCompetitors] = useState<CompetitorAnalysis | null>(null);
   const [seasonality, setSeasonality] = useState<SeasonalityAnalysis | null>(null);
   const [stores, setStores] = useState<StoreLookupResult | null>(null);
+  const [cityDetail, setCityDetail] = useState<CityDetailAnalysis | null>(null);
+  const [selectedCatchment, setSelectedCatchment] = useState<CatchmentArea | null>(null);
+  const [selectedStreet, setSelectedStreet] = useState<StreetLocation | null>(null);
+  const [mapMode, setMapMode] = useState<MapMode>('europe');
   const [storeSize, setStoreSize] = useState(80);
   const [loading, setLoading] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [marketLoading, setMarketLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('analysis');
@@ -83,6 +95,20 @@ export default function App() {
     return map;
   }, [cities]);
 
+  const loadCityDetail = useCallback(async (cityId: string, size: number) => {
+    setDetailLoading(true);
+    try {
+      const detail = await fetchCityDetail(cityId, size);
+      setCityDetail(detail);
+      setSelectedCatchment(null);
+      setSelectedStreet(null);
+    } catch {
+      setCityDetail(null);
+    } finally {
+      setDetailLoading(false);
+    }
+  }, []);
+
   const loadMarketData = useCallback(async (cityId: string, size: number) => {
     setMarketLoading(true);
     try {
@@ -103,20 +129,35 @@ export default function App() {
 
   const analyzeCity = useCallback(async (city: CityLocation, size: number) => {
     setLoading(true);
+    setMapMode('city');
+    setActiveTab('locations');
     try {
       const pred = await predictCity(city.id, size);
       setPrediction(pred);
-      await loadMarketData(city.id, size);
+      await Promise.all([
+        loadMarketData(city.id, size),
+        loadCityDetail(city.id, size),
+      ]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Analysis failed');
     } finally {
       setLoading(false);
     }
-  }, [loadMarketData]);
+  }, [loadMarketData, loadCityDetail]);
 
   const handleSelectCity = (city: CityLocation) => {
     setSelectedCity(city);
     analyzeCity(city, storeSize);
+  };
+
+  const handleBackToEurope = () => {
+    setMapMode('europe');
+    setSelectedCity(null);
+    setCityDetail(null);
+    setSelectedCatchment(null);
+    setSelectedStreet(null);
+    setPrediction(null);
+    setActiveTab('analysis');
   };
 
   const handleStoreSizeChange = (size: number) => {
@@ -146,43 +187,55 @@ export default function App() {
           <span className="logo-sub">Geo Intelligence</span>
         </a>
         <div className="header-search">
-          <input
-            type="text"
-            placeholder="Search cities..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          <select
-            value={filterTier ?? ''}
-            onChange={(e) => setFilterTier(e.target.value ? Number(e.target.value) : null)}
-          >
-            <option value="">All tiers</option>
-            <option value="1">Tier 1</option>
-            <option value="2">Tier 2</option>
-            <option value="3">Tier 3</option>
-          </select>
+          {mapMode === 'europe' ? (
+            <>
+              <input
+                type="text"
+                placeholder="Search cities..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <select
+                value={filterTier ?? ''}
+                onChange={(e) => setFilterTier(e.target.value ? Number(e.target.value) : null)}
+              >
+                <option value="">All tiers</option>
+                <option value="1">Tier 1</option>
+                <option value="2">Tier 2</option>
+                <option value="3">Tier 3</option>
+              </select>
+            </>
+          ) : (
+            <button type="button" className="back-btn" onClick={handleBackToEurope}>
+              ← Back to Europe
+            </button>
+          )}
         </div>
         <div className="header-stats">
           <div className="stat">
-            <div className="stat-label">Cities</div>
-            <div className="stat-value">{health?.city_count ?? cities.length}</div>
+            <div className="stat-label">{mapMode === 'city' ? 'City' : 'Cities'}</div>
+            <div className="stat-value">
+              {mapMode === 'city' && selectedCity ? selectedCity.city : (health?.city_count ?? cities.length)}
+            </div>
           </div>
-          {metrics && (
+          {mapMode === 'city' && cityDetail && (
+            <div className="stat">
+              <div className="stat-label">Catchments</div>
+              <div className="stat-value">{cityDetail.catchments.length}</div>
+            </div>
+          )}
+          {metrics && mapMode === 'europe' && (
             <div className="stat">
               <div className="stat-label">Model Accuracy</div>
               <div className="stat-value">{(metrics.r2_score * 100).toFixed(1)}%</div>
             </div>
           )}
-          <div className="stat">
-            <div className="stat-label">Stores</div>
-            <div className="stat-value">4</div>
-          </div>
         </div>
       </header>
 
       <main className="main main-3col">
         <div className="map-container">
-          {filteredCities.length > 0 && (
+          {mapMode === 'europe' && filteredCities.length > 0 && (
             <EuropeMap
               cities={filteredCities}
               selectedCity={selectedCity}
@@ -190,12 +243,36 @@ export default function App() {
               predictions={predictionsMap}
             />
           )}
+          {mapMode === 'city' && selectedCity && cityDetail && (
+            <CityDetailMap
+              city={selectedCity}
+              catchments={cityDetail.catchments}
+              streets={cityDetail.streets}
+              selectedCatchment={selectedCatchment}
+              selectedStreet={selectedStreet}
+              onSelectCatchment={(c) => {
+                setSelectedCatchment(c);
+                setSelectedStreet(null);
+              }}
+              onSelectStreet={setSelectedStreet}
+            />
+          )}
+          {mapMode === 'city' && detailLoading && (
+            <div className="map-loading">Loading city detail...</div>
+          )}
         </div>
 
         <div className="panel-center">
           <div className="tab-bar">
             <button className={activeTab === 'analysis' ? 'active' : ''} onClick={() => setActiveTab('analysis')}>
               Analysis
+            </button>
+            <button
+              className={activeTab === 'locations' ? 'active' : ''}
+              onClick={() => setActiveTab('locations')}
+              disabled={!selectedCity}
+            >
+              Locations
             </button>
             <button className={activeTab === 'market' ? 'active' : ''} onClick={() => setActiveTab('market')}>
               Market
@@ -213,6 +290,18 @@ export default function App() {
               storeSize={storeSize}
               onStoreSizeChange={handleStoreSizeChange}
               loading={loading}
+            />
+          )}
+          {activeTab === 'locations' && selectedCity && (
+            <LocationPanel
+              city={selectedCity}
+              catchments={cityDetail?.catchments ?? []}
+              streets={cityDetail?.streets ?? []}
+              selectedCatchment={selectedCatchment}
+              selectedStreet={selectedStreet}
+              onSelectCatchment={setSelectedCatchment}
+              onSelectStreet={setSelectedStreet}
+              loading={detailLoading}
             />
           )}
           {activeTab === 'market' && (

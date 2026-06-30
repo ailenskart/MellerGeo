@@ -28,7 +28,7 @@ Per [mellerbrand.com/pages/our-stores](https://mellerbrand.com/pages/our-stores)
 - **Google Maps Integration** — Live Meller store lookup, competitor POIs, and estimated store sizes
 - **15 Geo Parameters** — Population, GDP, foot traffic, tourism, competitor density, and more
 - **Viability Scoring** — 0–100 score with actionable recommendations
-- **Store Size Simulator** — Adjust store size (40–200 m²) and see revenue impact in real time
+- **Catchment & Street Analysis** — Drill into any city to compare districts and specific retail streets
 
 ## Architecture
 

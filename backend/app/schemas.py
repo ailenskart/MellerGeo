@@ -138,3 +138,56 @@ class BatchPredictRequest(BaseModel):
     store_size_sqm: float = 80
     city_tier: int | None = None
     country: str | None = None
+
+
+class CatchmentArea(BaseModel):
+    id: str
+    name: str
+    type: str
+    type_label: str
+    center: dict[str, float]
+    polygon: list[list[float]]
+    foot_traffic_index: float
+    tourist_index: float
+    luxury_retail_score: float
+    retail_rent_index: float
+    has_meller_store: bool = False
+    predicted_annual_revenue_eur: float
+    viability_score: float
+    viability_label: str
+    revenue_per_sqm: float
+    recommendation: str
+    street_count: int = 0
+
+
+class StreetLocation(BaseModel):
+    id: str
+    name: str
+    catchment_id: str | None = None
+    catchment_name: str | None = None
+    type: str
+    type_label: str
+    latitude: float
+    longitude: float
+    foot_traffic_index: float
+    retail_rent_index: float
+    street_width_m: float | None = None
+    has_meller_store: bool = False
+    predicted_annual_revenue_eur: float
+    viability_score: float
+    viability_label: str
+    revenue_per_sqm: float
+    confidence_interval_low: float | None = None
+    confidence_interval_high: float | None = None
+    recommendation: str
+    key_drivers: list[dict[str, float | str]] = []
+
+
+class CityDetailAnalysis(BaseModel):
+    city: str
+    country: str
+    city_id: str
+    catchments: list[CatchmentArea]
+    streets: list[StreetLocation]
+    top_catchment: CatchmentArea | None = None
+    top_street: StreetLocation | None = None

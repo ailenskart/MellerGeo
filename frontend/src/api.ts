@@ -123,6 +123,59 @@ export interface StoreLookupResult {
   google_maps_enabled: boolean;
 }
 
+export interface CityDetailAnalysis {
+  city: string;
+  country: string;
+  city_id: string;
+  catchments: CatchmentArea[];
+  streets: StreetLocation[];
+  top_catchment: CatchmentArea | null;
+  top_street: StreetLocation | null;
+}
+
+export interface CatchmentArea {
+  id: string;
+  name: string;
+  type: string;
+  type_label: string;
+  center: { latitude: number; longitude: number };
+  polygon: number[][];
+  foot_traffic_index: number;
+  tourist_index: number;
+  luxury_retail_score: number;
+  retail_rent_index: number;
+  has_meller_store: boolean;
+  predicted_annual_revenue_eur: number;
+  viability_score: number;
+  viability_label: string;
+  revenue_per_sqm: number;
+  recommendation: string;
+  street_count: number;
+}
+
+export interface StreetLocation {
+  id: string;
+  name: string;
+  catchment_id: string | null;
+  catchment_name: string | null;
+  type: string;
+  type_label: string;
+  latitude: number;
+  longitude: number;
+  foot_traffic_index: number;
+  retail_rent_index: number;
+  street_width_m: number | null;
+  has_meller_store: boolean;
+  predicted_annual_revenue_eur: number;
+  viability_score: number;
+  viability_label: string;
+  revenue_per_sqm: number;
+  confidence_interval_low: number | null;
+  confidence_interval_high: number | null;
+  recommendation: string;
+  key_drivers: { factor: string; importance: number; value: number | string }[];
+}
+
 export interface HealthStatus {
   status: string;
   model_loaded: boolean;
@@ -186,6 +239,30 @@ export async function fetchSeasonality(cityId: string, storeSize: number): Promi
 export async function fetchStores(cityId: string): Promise<StoreLookupResult> {
   const res = await fetch(`${API_BASE}/cities/${cityId}/stores`);
   if (!res.ok) throw new Error('Store lookup failed');
+  return res.json();
+}
+
+export async function fetchCityDetail(cityId: string, storeSize: number = 80): Promise<CityDetailAnalysis> {
+  const res = await fetch(`${API_BASE}/cities/${cityId}/detail?store_size_sqm=${storeSize}`);
+  if (!res.ok) throw new Error('City detail failed');
+  return res.json();
+}
+
+export async function fetchCityCatchments(cityId: string, storeSize: number = 80): Promise<CatchmentArea[]> {
+  const res = await fetch(`${API_BASE}/cities/${cityId}/catchments?store_size_sqm=${storeSize}`);
+  if (!res.ok) throw new Error('Catchment analysis failed');
+  return res.json();
+}
+
+export async function fetchCityStreets(
+  cityId: string,
+  storeSize: number = 80,
+  catchmentId?: string,
+): Promise<StreetLocation[]> {
+  const qs = new URLSearchParams({ store_size_sqm: String(storeSize) });
+  if (catchmentId) qs.set('catchment_id', catchmentId);
+  const res = await fetch(`${API_BASE}/cities/${cityId}/streets?${qs}`);
+  if (!res.ok) throw new Error('Street analysis failed');
   return res.json();
 }
 
