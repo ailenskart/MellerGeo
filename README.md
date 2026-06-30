@@ -22,6 +22,33 @@ AI-powered geographical intelligence platform for **Meller** eyewear store expan
 └─────────────────┘     └──────────────────┘     └─────────────────────┘
 ```
 
+## Hosting
+
+### Production (single server)
+
+The backend serves both the API and the built React frontend:
+
+```bash
+./scripts/start-production.sh
+```
+
+Open http://localhost:8000
+
+### Docker
+
+```bash
+docker build -t meller-geo .
+docker run -p 8000:8000 meller-geo
+```
+
+### Deploy to Render (permanent, free tier)
+
+1. Push this repo to GitHub
+2. Go to [Render Dashboard](https://dashboard.render.com) → **New** → **Blueprint**
+3. Connect the `MellerGeo` repository and deploy
+
+The included `render.yaml` configures a Docker web service in the Frankfurt region with health checks on `/api/health`.
+
 ## Quick Start
 
 ### 1. Backend Setup
