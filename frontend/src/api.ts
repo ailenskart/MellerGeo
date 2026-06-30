@@ -128,6 +128,50 @@ export interface StoreLookupResult {
   data_quality?: Record<string, unknown>;
 }
 
+export interface CommercialProperty {
+  id: string;
+  title: string;
+  address: string;
+  city: string;
+  country: string;
+  latitude: number;
+  longitude: number;
+  broker: string;
+  broker_id: string;
+  broker_portal: string;
+  listing_url: string;
+  property_type: string;
+  property_type_label: string;
+  size_sqm: number;
+  rent_eur_monthly: number;
+  rent_eur_sqm_year: number;
+  availability: string;
+  availability_label: string;
+  catchment_id: string | null;
+  street_id: string | null;
+  street_name: string | null;
+  catchment_name: string | null;
+  description: string;
+  meller_fit_score: number;
+  distance_km: number;
+  data_source: string;
+  contact: string;
+}
+
+export interface CommercialPropertySearch {
+  city: string;
+  country: string;
+  total_listings: number;
+  available_count: number;
+  brokers: string[];
+  broker_directory: { id: string; name: string; listing_portal: string }[];
+  listings: CommercialProperty[];
+  top_pick: CommercialProperty | null;
+  google_live: boolean;
+  data_sources: Record<string, number>;
+  summary: string;
+}
+
 export interface CityDetailAnalysis {
   city: string;
   country: string;
@@ -299,6 +343,19 @@ export async function batchPredict(storeSize: number = 80): Promise<CityLocation
 export async function predictCity(cityId: string, storeSize: number): Promise<RevenuePrediction> {
   const res = await fetch(`${API_BASE}/cities/${cityId}/predict?store_size_sqm=${storeSize}`);
   if (!res.ok) throw new Error('Prediction failed');
+  return res.json();
+}
+
+export async function fetchCommercialProperties(
+  cityId: string,
+  storeSize: number = 80,
+  params?: { catchmentId?: string; streetId?: string },
+): Promise<CommercialPropertySearch> {
+  const qs = new URLSearchParams({ store_size_sqm: String(storeSize) });
+  if (params?.catchmentId) qs.set('catchment_id', params.catchmentId);
+  if (params?.streetId) qs.set('street_id', params.streetId);
+  const res = await fetch(`${API_BASE}/cities/${cityId}/properties?${qs}`);
+  if (!res.ok) throw new Error('Commercial property search failed');
   return res.json();
 }
 

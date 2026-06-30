@@ -22,6 +22,7 @@ from app.ai_intelligence import (
 )
 from app.google_maps import get_google_api_status
 from app.chat_service import chat
+from app.commercial_properties import search_commercial_properties
 from app.catchment import analyze_city_catchments, analyze_city_streets
 from app.data_generator import get_city_features
 from app.meller_stores import BRAND, get_all_stores, get_stores_for_city
@@ -32,6 +33,7 @@ from app.schemas import (
     ChatResponse,
     CityDetailAnalysis,
     CityIntelligenceBundle,
+    CommercialPropertySearch,
     CatchmentArea,
     CityLocation,
     StreetLocation,
@@ -203,6 +205,62 @@ def get_city_streets(
 ):
     city = _get_city(city_id)
     return analyze_city_streets(city, store_size_sqm, predictor, catchment_id)
+
+
+@app.get("/api/cities/{city_id}/properties", response_model=CommercialPropertySearch)
+async def get_commercial_properties(
+    city_id: str,
+    store_size_sqm: float = 80,
+    catchment_id: str | None = None,
+    street_id: str | None = None,
+):
+    from app.catchment_data import get_catchment_by_id, get_street_by_id
+
+    city = _get_city(city_id)
+    features = get_city_features(city["city"], store_size_sqm)
+    foot_traffic = features["foot_traffic_index"] if features else city.get("foot_traffic_index", 50)
+    tourist_index = features["tourist_index"] if features else city.get("tourist_index", 30)
+
+    lat, lon = city["latitude"], city["longitude"]
+    street_name = None
+
+    if street_id:
+        street = get_street_by_id(street_id, city["city"], lat, lon, city["city_tier"])
+        if street:
+            lat, lon = street["lat"], street["lon"]
+            street_name = street["name"]
+            catchment_id = street.get("catchment_id")
+            foot_traffic = street.get("foot_traffic", foot_traffic)
+
+    if catchment_id:
+        catchment = get_catchment_by_id(catchment_id, city["city"], lat, lon, city["city_tier"])
+        if catchment:
+            lat, lon = catchment["center"][0], catchment["center"][1]
+            foot_traffic = catchment.get("foot_traffic", foot_traffic)
+            tourist_index = catchment.get("tourist", tourist_index)
+
+    result = await search_commercial_properties(
+        city=city["city"],
+        country=city["country"],
+        latitude=city["latitude"],
+        longitude=city["longitude"],
+        city_tier=city["city_tier"],
+        foot_traffic=foot_traffic,
+        tourist_index=tourist_index,
+        target_size_sqm=store_size_sqm,
+        catchment_id=catchment_id,
+        street_id=street_id,
+        street_name=street_name,
+        filter_lat=lat if catchment_id or street_id else None,
+        filter_lon=lon if catchment_id or street_id else None,
+    )
+    return CommercialPropertySearch(**result)
+
+
+@app.get("/api/brokers")
+def list_commercial_brokers():
+    from app.commercial_properties_data import COMMERCIAL_BROKERS
+    return [{"id": k, **v} for k, v in COMMERCIAL_BROKERS.items()]
 
 
 @app.get("/api/cities/{city_id}/intelligence", response_model=CityIntelligenceBundle)

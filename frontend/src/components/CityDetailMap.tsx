@@ -1,18 +1,22 @@
 import { useEffect } from 'react';
 import { CircleMarker, MapContainer, Polygon, Popup, TileLayer, useMap } from 'react-leaflet';
-import type { CatchmentArea, CityLocation, StreetLocation } from '../api';
+import type { CatchmentArea, CityLocation, CommercialProperty, StreetLocation } from '../api';
 import { formatCurrency } from '../api';
 
 const MELLER_ORANGE = '#FF6723';
+const PROPERTY_BLUE = '#3b82f6';
 
 interface Props {
   city: CityLocation;
   catchments: CatchmentArea[];
   streets: StreetLocation[];
+  properties: CommercialProperty[];
   selectedCatchment: CatchmentArea | null;
   selectedStreet: StreetLocation | null;
+  selectedProperty: CommercialProperty | null;
   onSelectCatchment: (c: CatchmentArea) => void;
   onSelectStreet: (s: StreetLocation) => void;
+  onSelectProperty: (p: CommercialProperty) => void;
 }
 
 function getViabilityColor(score: number): string {
@@ -22,21 +26,24 @@ function getViabilityColor(score: number): string {
   return '#ef4444';
 }
 
-function FlyToCity({ city, selectedStreet, selectedCatchment }: {
+function FlyToCity({ city, selectedStreet, selectedCatchment, selectedProperty }: {
   city: CityLocation;
   selectedStreet: StreetLocation | null;
   selectedCatchment: CatchmentArea | null;
+  selectedProperty: CommercialProperty | null;
 }) {
   const map = useMap();
   useEffect(() => {
-    if (selectedStreet) {
+    if (selectedProperty) {
+      map.flyTo([selectedProperty.latitude, selectedProperty.longitude], 17, { duration: 0.8 });
+    } else if (selectedStreet) {
       map.flyTo([selectedStreet.latitude, selectedStreet.longitude], 17, { duration: 0.8 });
     } else if (selectedCatchment) {
       map.flyTo([selectedCatchment.center.latitude, selectedCatchment.center.longitude], 15, { duration: 0.8 });
     } else {
       map.flyTo([city.latitude, city.longitude], 13, { duration: 0.8 });
     }
-  }, [city, selectedStreet, selectedCatchment, map]);
+  }, [city, selectedStreet, selectedCatchment, selectedProperty, map]);
   return null;
 }
 
@@ -44,14 +51,21 @@ export default function CityDetailMap({
   city,
   catchments,
   streets,
+  properties,
   selectedCatchment,
   selectedStreet,
+  selectedProperty,
   onSelectCatchment,
   onSelectStreet,
+  onSelectProperty,
 }: Props) {
   const visibleStreets = selectedCatchment
     ? streets.filter((s) => s.catchment_id === selectedCatchment.id)
     : streets;
+
+  const visibleProperties = selectedCatchment
+    ? properties.filter((p) => !p.catchment_id || p.catchment_id === selectedCatchment.id)
+    : properties;
 
   return (
     <MapContainer
@@ -63,7 +77,12 @@ export default function CityDetailMap({
         attribution='&copy; <a href="https://carto.com/">CARTO</a>'
         url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
       />
-      <FlyToCity city={city} selectedStreet={selectedStreet} selectedCatchment={selectedCatchment} />
+      <FlyToCity
+        city={city}
+        selectedStreet={selectedStreet}
+        selectedCatchment={selectedCatchment}
+        selectedProperty={selectedProperty}
+      />
 
       {catchments.map((c) => {
         const isSelected = selectedCatchment?.id === c.id;
@@ -121,10 +140,42 @@ export default function CityDetailMap({
                   {formatCurrency(s.predicted_annual_revenue_eur)}
                 </div>
                 <div style={{ fontSize: '0.85em' }}>Foot traffic: {s.foot_traffic_index}/100</div>
-                {s.has_meller_store && (
-                  <div style={{ color: MELLER_ORANGE, fontWeight: 700, fontSize: '0.75em', marginTop: 4, textTransform: 'uppercase' }}>
-                    MELLER Store
-                  </div>
+              </div>
+            </Popup>
+          </CircleMarker>
+        );
+      })}
+
+      {visibleProperties.map((p) => {
+        const isSelected = selectedProperty?.id === p.id;
+        return (
+          <CircleMarker
+            key={p.id}
+            center={[p.latitude, p.longitude]}
+            radius={isSelected ? 9 : 7}
+            pathOptions={{
+              color: isSelected ? '#111' : PROPERTY_BLUE,
+              fillColor: PROPERTY_BLUE,
+              fillOpacity: 0.85,
+              weight: isSelected ? 3 : 2,
+            }}
+            eventHandlers={{ click: () => onSelectProperty(p) }}
+          >
+            <Popup>
+              <div style={{ fontFamily: 'Helvetica Neue, sans-serif', minWidth: 240 }}>
+                <div style={{ fontSize: '0.7em', color: PROPERTY_BLUE, fontWeight: 700, textTransform: 'uppercase' }}>
+                  {p.broker} · {p.availability_label}
+                </div>
+                <strong style={{ display: 'block', marginTop: 4 }}>{p.title}</strong>
+                <div style={{ fontSize: '0.8em', color: '#666', marginTop: 4 }}>{p.address}</div>
+                <div style={{ fontSize: '0.95em', marginTop: 8 }}>
+                  {p.size_sqm} m² · {formatCurrency(p.rent_eur_monthly)}/mo
+                </div>
+                <div style={{ fontSize: '0.85em', color: MELLER_ORANGE, fontWeight: 700, marginTop: 4 }}>
+                  MELLER fit: {p.meller_fit_score}/100
+                </div>
+                {p.street_name && (
+                  <div style={{ fontSize: '0.8em', marginTop: 4 }}>Near: {p.street_name}</div>
                 )}
               </div>
             </Popup>

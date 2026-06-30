@@ -1,5 +1,6 @@
-import type { CatchmentArea, CityLocation, StreetLocation } from '../api';
+import type { CatchmentArea, CityLocation, CommercialProperty, CommercialPropertySearch, StreetLocation } from '../api';
 import { formatCurrency } from '../api';
+import CommercialPropertiesPanel from './CommercialPropertiesPanel';
 
 interface Props {
   city: CityLocation;
@@ -10,6 +11,10 @@ interface Props {
   onSelectCatchment: (c: CatchmentArea | null) => void;
   onSelectStreet: (s: StreetLocation | null) => void;
   onOpenSocial?: () => void;
+  properties?: CommercialPropertySearch | null;
+  propertiesLoading?: boolean;
+  selectedPropertyId?: string | null;
+  onSelectProperty?: (p: CommercialProperty) => void;
   loading: boolean;
 }
 
@@ -28,6 +33,10 @@ export default function LocationPanel({
   onSelectCatchment,
   onSelectStreet,
   onOpenSocial,
+  properties,
+  propertiesLoading,
+  selectedPropertyId,
+  onSelectProperty,
   loading,
 }: Props) {
   if (loading) {
@@ -100,6 +109,13 @@ export default function LocationPanel({
           </div>
 
           <p className="recommendation" style={{ marginTop: '1rem' }}>{selectedStreet.recommendation}</p>
+
+          <CommercialPropertiesPanel
+            properties={properties ?? null}
+            loading={!!propertiesLoading}
+            selectedPropertyId={selectedPropertyId}
+            onSelectProperty={onSelectProperty}
+          />
         </section>
       ) : selectedCatchment ? (
         <>
@@ -145,6 +161,13 @@ export default function LocationPanel({
               ))}
             </ul>
           </section>
+
+          <CommercialPropertiesPanel
+            properties={properties ?? null}
+            loading={!!propertiesLoading}
+            selectedPropertyId={selectedPropertyId}
+            onSelectProperty={onSelectProperty}
+          />
         </>
       ) : (
         <>
@@ -204,6 +227,13 @@ export default function LocationPanel({
               ))}
             </ul>
           </section>
+
+          <CommercialPropertiesPanel
+            properties={properties ?? null}
+            loading={!!propertiesLoading}
+            selectedPropertyId={selectedPropertyId}
+            onSelectProperty={onSelectProperty}
+          />
         </>
       )}
     </div>

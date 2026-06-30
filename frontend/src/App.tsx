@@ -11,12 +11,15 @@ import {
   batchPredict,
   fetchCityIntelligence,
   fetchCityDetail,
+  fetchCommercialProperties,
   fetchHealth,
   fetchMetrics,
   predictCity,
   type CatchmentArea,
   type CityDetailAnalysis,
   type CityLocation,
+  type CommercialProperty,
+  type CommercialPropertySearch,
   type CompetitorAnalysis,
   type HealthStatus,
   type ModelMetrics,
@@ -41,6 +44,9 @@ export default function App() {
   const [stores, setStores] = useState<StoreLookupResult | null>(null);
   const [socialReport, setSocialReport] = useState<SocialIntelligenceReport | null>(null);
   const [cityDetail, setCityDetail] = useState<CityDetailAnalysis | null>(null);
+  const [commercialProperties, setCommercialProperties] = useState<CommercialPropertySearch | null>(null);
+  const [selectedProperty, setSelectedProperty] = useState<CommercialProperty | null>(null);
+  const [propertiesLoading, setPropertiesLoading] = useState(false);
   const [selectedCatchment, setSelectedCatchment] = useState<CatchmentArea | null>(null);
   const [selectedStreet, setSelectedStreet] = useState<StreetLocation | null>(null);
   const [mapMode, setMapMode] = useState<MapMode>('europe');
@@ -98,6 +104,22 @@ export default function App() {
     }
     return map;
   }, [cities]);
+
+  const loadProperties = useCallback(async (
+    cityId: string,
+    size: number,
+    opts?: { catchmentId?: string; streetId?: string },
+  ) => {
+    setPropertiesLoading(true);
+    try {
+      const data = await fetchCommercialProperties(cityId, size, opts);
+      setCommercialProperties(data);
+    } catch {
+      setCommercialProperties(null);
+    } finally {
+      setPropertiesLoading(false);
+    }
+  }, []);
 
   const loadCityDetail = useCallback(async (cityId: string, size: number) => {
     setDetailLoading(true);
@@ -174,29 +196,42 @@ export default function App() {
       await Promise.all([
         loadMarketData(city.id, size),
         loadCityDetail(city.id, size),
+        loadProperties(city.id, size),
       ]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Analysis failed');
     } finally {
       setLoading(false);
     }
-  }, [loadMarketData, loadCityDetail, loadSocialData]);
+  }, [loadMarketData, loadCityDetail, loadProperties]);
 
   const handleSelectCatchment = (c: CatchmentArea | null) => {
     setSelectedCatchment(c);
     setSelectedStreet(null);
+    setSelectedProperty(null);
     if (selectedCity && c) {
       loadSocialData(selectedCity.id, c.id);
+      loadProperties(selectedCity.id, storeSize, { catchmentId: c.id });
     } else if (selectedCity) {
       loadSocialData(selectedCity.id);
+      loadProperties(selectedCity.id, storeSize);
     }
   };
 
   const handleSelectStreet = (s: StreetLocation | null) => {
     setSelectedStreet(s);
+    setSelectedProperty(null);
     if (selectedCity && s) {
       loadSocialData(selectedCity.id, s.catchment_id ?? undefined, s.id);
+      loadProperties(selectedCity.id, storeSize, {
+        catchmentId: s.catchment_id ?? undefined,
+        streetId: s.id,
+      });
     }
+  };
+
+  const handleSelectProperty = (p: CommercialProperty) => {
+    setSelectedProperty(p);
   };
 
   const handleSelectCity = (city: CityLocation) => {
@@ -210,6 +245,8 @@ export default function App() {
     setCityDetail(null);
     setSelectedCatchment(null);
     setSelectedStreet(null);
+    setSelectedProperty(null);
+    setCommercialProperties(null);
     setSocialReport(null);
     setDataWarning(null);
     setPrediction(null);
@@ -306,10 +343,13 @@ export default function App() {
               city={selectedCity}
               catchments={cityDetail.catchments}
               streets={cityDetail.streets}
+              properties={commercialProperties?.listings ?? []}
               selectedCatchment={selectedCatchment}
               selectedStreet={selectedStreet}
+              selectedProperty={selectedProperty}
               onSelectCatchment={handleSelectCatchment}
               onSelectStreet={handleSelectStreet}
+              onSelectProperty={handleSelectProperty}
             />
           )}
           {mapMode === 'city' && detailLoading && (
@@ -367,6 +407,10 @@ export default function App() {
               onSelectCatchment={handleSelectCatchment}
               onSelectStreet={handleSelectStreet}
               onOpenSocial={() => setActiveTab('social')}
+              properties={commercialProperties}
+              propertiesLoading={propertiesLoading}
+              selectedPropertyId={selectedProperty?.id ?? null}
+              onSelectProperty={handleSelectProperty}
               loading={detailLoading}
             />
           )}

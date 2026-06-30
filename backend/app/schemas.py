@@ -266,3 +266,47 @@ class CityIntelligenceBundle(BaseModel):
     social: SocialIntelligenceReport
     seasonality: SeasonalityAnalysis
     google_status: dict = Field(default_factory=dict)
+
+
+class CommercialProperty(BaseModel):
+    id: str
+    title: str
+    address: str
+    city: str
+    country: str
+    latitude: float
+    longitude: float
+    broker: str
+    broker_id: str
+    broker_portal: str = ""
+    listing_url: str = ""
+    property_type: str
+    property_type_label: str
+    size_sqm: float
+    rent_eur_monthly: float
+    rent_eur_sqm_year: float
+    availability: str
+    availability_label: str
+    catchment_id: str | None = None
+    street_id: str | None = None
+    street_name: str | None = None
+    catchment_name: str | None = None
+    description: str = ""
+    meller_fit_score: float
+    distance_km: float
+    data_source: str
+    contact: str = ""
+
+
+class CommercialPropertySearch(BaseModel):
+    city: str
+    country: str
+    total_listings: int
+    available_count: int
+    brokers: list[str]
+    broker_directory: list[dict]
+    listings: list[CommercialProperty]
+    top_pick: CommercialProperty | None = None
+    google_live: bool = False
+    data_sources: dict[str, int] = Field(default_factory=dict)
+    summary: str = ""
