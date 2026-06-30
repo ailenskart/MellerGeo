@@ -1,7 +1,11 @@
 """FastAPI application for Meller Geo Intelligence."""
 
+from pathlib import Path
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.predictor import RevenuePredictor
 from app.schemas import CityLocation, GeoParameters, ModelMetrics, RevenuePrediction
@@ -21,6 +25,8 @@ app.add_middleware(
 )
 
 predictor = RevenuePredictor()
+
+STATIC_DIR = Path(__file__).resolve().parents[1] / "static"
 
 
 @app.get("/api/health")
@@ -70,3 +76,22 @@ def predict_city(city_id: str, store_size_sqm: float = 80):
 
     params = GeoParameters(**features)
     return predictor.predict(params)
+
+
+if STATIC_DIR.exists():
+    assets_dir = STATIC_DIR / "assets"
+    if assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
+    @app.get("/")
+    def serve_index():
+        return FileResponse(STATIC_DIR / "index.html")
+
+    @app.get("/{path:path}")
+    def serve_spa(path: str):
+        if path.startswith("api/"):
+            raise HTTPException(404, "Not found")
+        file_path = STATIC_DIR / path
+        if file_path.is_file():
+            return FileResponse(file_path)
+        return FileResponse(STATIC_DIR / "index.html")

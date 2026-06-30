@@ -4,5 +4,6 @@ __pycache__/
 *.pyo
 node_modules/
 dist/
+backend/static/
 .DS_Store
 *.egg-info/

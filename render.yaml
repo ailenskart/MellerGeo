@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: meller-geo-intelligence
+    runtime: docker
+    plan: free
+    region: frankfurt
+    branch: main
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: PORT
+        value: 8000
