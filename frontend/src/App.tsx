@@ -323,6 +323,9 @@ export default function App() {
               disabled={!selectedCity}
             >
               Social
+              {selectedCity && socialReport && !socialLoading && (
+                <span className="tab-badge" title="Social data loaded">●</span>
+              )}
             </button>
             <button className={activeTab === 'chat' ? 'active' : ''} onClick={() => setActiveTab('chat')}>
               AI Chat
@@ -348,6 +351,7 @@ export default function App() {
               selectedStreet={selectedStreet}
               onSelectCatchment={handleSelectCatchment}
               onSelectStreet={handleSelectStreet}
+              onOpenSocial={() => setActiveTab('social')}
               loading={detailLoading}
             />
           )}
