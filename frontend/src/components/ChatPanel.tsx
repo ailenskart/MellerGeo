@@ -13,7 +13,8 @@ const SUGGESTIONS = [
   'When is peak season for this city?',
   'Is there an existing Meller store nearby?',
   'Should we open a store in this location?',
-  'How does tourism affect revenue?',
+  'What are people saying on Google and Instagram?',
+  'Where do people shop in this area?',
 ];
 
 export default function ChatPanel({ selectedCity, storeSize }: Props) {

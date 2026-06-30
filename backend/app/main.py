@@ -27,9 +27,11 @@ from app.schemas import (
     ModelMetrics,
     RevenuePrediction,
     SeasonalityAnalysis,
+    SocialIntelligenceReport,
     StoreLookupResult,
 )
 from app.seasonality import compute_monthly_revenue, get_market_insights
+from app.social_intelligence import analyze_social_intelligence
 
 app = FastAPI(
     title="Meller Geo Intelligence",
@@ -247,6 +249,59 @@ async def lookup_stores(city_id: str):
     )
 
 
+@app.get("/api/cities/{city_id}/social", response_model=SocialIntelligenceReport)
+async def get_social_intelligence(
+    city_id: str,
+    catchment_id: str | None = None,
+    street_id: str | None = None,
+):
+    from app.catchment_data import get_catchment_by_id, get_street_by_id
+
+    city = _get_city(city_id)
+    features = get_city_features(city["city"])
+    tourist_index = features["tourist_index"] if features else city.get("tourist_index", 30)
+    foot_traffic = features["foot_traffic_index"] if features else city.get("foot_traffic_index", 50)
+
+    lat, lon = city["latitude"], city["longitude"]
+    area_name = None
+    street_name = None
+
+    if street_id:
+        street = get_street_by_id(street_id, city["city"], lat, lon, city["city_tier"])
+        if street:
+            lat, lon = street["lat"], street["lon"]
+            street_name = street["name"]
+            catchment_id = street.get("catchment_id")
+            foot_traffic = street.get("foot_traffic", foot_traffic)
+
+    if catchment_id:
+        catchment = get_catchment_by_id(catchment_id, city["city"], lat, lon, city["city_tier"])
+        if catchment:
+            lat, lon = catchment["center"][0], catchment["center"][1]
+            area_name = catchment["name"]
+            foot_traffic = catchment.get("foot_traffic", foot_traffic)
+            tourist_index = catchment.get("tourist", tourist_index)
+
+    result = await analyze_social_intelligence(
+        city=city["city"],
+        country=city["country"],
+        latitude=lat,
+        longitude=lon,
+        area_name=area_name,
+        tourist_index=tourist_index,
+        foot_traffic=foot_traffic,
+        catchment_id=catchment_id,
+        street_name=street_name,
+    )
+
+    return SocialIntelligenceReport(
+        google=result["google"],
+        instagram=result["instagram"],
+        twitter=result["twitter"],
+        **{k: v for k, v in result.items() if k not in ("google", "instagram", "twitter")},
+    )
+
+
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
     context: dict = {}
@@ -283,6 +338,22 @@ async def chat_endpoint(request: ChatRequest):
 
         stores = await find_meller_stores(city["latitude"], city["longitude"], city=city["city"])
         context["meller_stores"] = stores
+
+        social = await analyze_social_intelligence(
+            city=city["city"],
+            country=city["country"],
+            latitude=city["latitude"],
+            longitude=city["longitude"],
+            tourist_index=features.get("tourist_index", 30) if features else 30,
+            foot_traffic=features.get("foot_traffic_index", 50) if features else 50,
+        )
+        context["social_intelligence"] = {
+            "sentiment": social["overall_sentiment_label"],
+            "shopping_intent": social["shopping_intent_score"],
+            "where_people_shop": social["where_people_shop"],
+            "google_rating": social["google"].get("average_rating"),
+            "instagram_mentions": social["instagram"].get("mention_volume_monthly"),
+        }
 
     return await chat(request, context)
 

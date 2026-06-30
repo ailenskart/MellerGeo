@@ -29,6 +29,7 @@ Per [mellerbrand.com/pages/our-stores](https://mellerbrand.com/pages/our-stores)
 - **15 Geo Parameters** — Population, GDP, foot traffic, tourism, competitor density, and more
 - **Viability Scoring** — 0–100 score with actionable recommendations
 - **Catchment & Street Analysis** — Drill into any city to compare districts and specific retail streets
+- **Social Intelligence** — Google reviews, Instagram buzz, and X/Twitter shopping signals with sentiment analysis
 
 ## Architecture
 

@@ -176,6 +176,65 @@ export interface StreetLocation {
   key_drivers: { factor: string; importance: number; value: number | string }[];
 }
 
+export interface SocialReview {
+  author: string;
+  rating?: number | null;
+  text: string;
+  time: string;
+  source: string;
+  likes?: number | null;
+  comments?: number | null;
+  sentiment?: string | null;
+}
+
+export interface ShoppingDestination {
+  name: string;
+  social_buzz_score: number;
+  google_rating: number;
+  foot_traffic_estimate: number;
+  instagram_mentions: number;
+  why_popular: string;
+  best_for: string;
+}
+
+export interface PlatformSocialData {
+  platform: string;
+  sentiment_score: number;
+  mention_volume_monthly?: number | null;
+  average_rating?: number | null;
+  total_reviews?: number | null;
+  review_count_analyzed?: number | null;
+  engagement_rate?: number | null;
+  top_posts?: Record<string, unknown>[];
+  top_rated_nearby?: Record<string, unknown>[];
+  reviews?: SocialReview[];
+  hashtag_volume?: Record<string, number>;
+  trending_topics?: string[];
+  shopping_tags?: string[];
+  influencer_visits_monthly?: number | null;
+  shopping_intent_mentions?: number | null;
+}
+
+export interface SocialIntelligenceReport {
+  location: string;
+  city: string;
+  country: string;
+  latitude: number;
+  longitude: number;
+  overall_sentiment_score: number;
+  overall_sentiment_label: string;
+  shopping_intent_score: number;
+  google: PlatformSocialData;
+  instagram: PlatformSocialData;
+  twitter: PlatformSocialData;
+  shopping_destinations: ShoppingDestination[];
+  top_positive_themes: string[];
+  top_negative_themes: string[];
+  where_people_shop: string[];
+  data_sources: Record<string, boolean>;
+  summary: string;
+}
+
 export interface HealthStatus {
   status: string;
   model_loaded: boolean;
@@ -263,6 +322,18 @@ export async function fetchCityStreets(
   if (catchmentId) qs.set('catchment_id', catchmentId);
   const res = await fetch(`${API_BASE}/cities/${cityId}/streets?${qs}`);
   if (!res.ok) throw new Error('Street analysis failed');
+  return res.json();
+}
+
+export async function fetchSocialIntelligence(
+  cityId: string,
+  params?: { catchmentId?: string; streetId?: string },
+): Promise<SocialIntelligenceReport> {
+  const qs = new URLSearchParams();
+  if (params?.catchmentId) qs.set('catchment_id', params.catchmentId);
+  if (params?.streetId) qs.set('street_id', params.streetId);
+  const res = await fetch(`${API_BASE}/cities/${cityId}/social?${qs}`);
+  if (!res.ok) throw new Error('Social intelligence failed');
   return res.json();
 }
 

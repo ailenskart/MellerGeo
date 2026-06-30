@@ -4,6 +4,7 @@ import CityDetailMap from './components/CityDetailMap';
 import EuropeMap from './components/EuropeMap';
 import LocationPanel from './components/LocationPanel';
 import MarketPanel from './components/MarketPanel';
+import SocialPanel from './components/SocialPanel';
 import Sidebar from './components/Sidebar';
 import {
   batchPredict,
@@ -12,6 +13,7 @@ import {
   fetchHealth,
   fetchMetrics,
   fetchSeasonality,
+  fetchSocialIntelligence,
   fetchStores,
   predictCity,
   type CatchmentArea,
@@ -22,11 +24,12 @@ import {
   type ModelMetrics,
   type RevenuePrediction,
   type SeasonalityAnalysis,
+  type SocialIntelligenceReport,
   type StoreLookupResult,
   type StreetLocation,
 } from './api';
 
-type Tab = 'analysis' | 'locations' | 'market' | 'chat';
+type Tab = 'analysis' | 'locations' | 'market' | 'social' | 'chat';
 type MapMode = 'europe' | 'city';
 
 export default function App() {
@@ -38,6 +41,7 @@ export default function App() {
   const [competitors, setCompetitors] = useState<CompetitorAnalysis | null>(null);
   const [seasonality, setSeasonality] = useState<SeasonalityAnalysis | null>(null);
   const [stores, setStores] = useState<StoreLookupResult | null>(null);
+  const [socialReport, setSocialReport] = useState<SocialIntelligenceReport | null>(null);
   const [cityDetail, setCityDetail] = useState<CityDetailAnalysis | null>(null);
   const [selectedCatchment, setSelectedCatchment] = useState<CatchmentArea | null>(null);
   const [selectedStreet, setSelectedStreet] = useState<StreetLocation | null>(null);
@@ -46,6 +50,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [marketLoading, setMarketLoading] = useState(false);
+  const [socialLoading, setSocialLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('analysis');
   const [searchQuery, setSearchQuery] = useState('');
@@ -109,6 +114,25 @@ export default function App() {
     }
   }, []);
 
+  const loadSocialData = useCallback(async (
+    cityId: string,
+    catchmentId?: string | null,
+    streetId?: string | null,
+  ) => {
+    setSocialLoading(true);
+    try {
+      const report = await fetchSocialIntelligence(cityId, {
+        catchmentId: catchmentId ?? undefined,
+        streetId: streetId ?? undefined,
+      });
+      setSocialReport(report);
+    } catch {
+      setSocialReport(null);
+    } finally {
+      setSocialLoading(false);
+    }
+  }, []);
+
   const loadMarketData = useCallback(async (cityId: string, size: number) => {
     setMarketLoading(true);
     try {
@@ -137,13 +161,31 @@ export default function App() {
       await Promise.all([
         loadMarketData(city.id, size),
         loadCityDetail(city.id, size),
+        loadSocialData(city.id),
       ]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Analysis failed');
     } finally {
       setLoading(false);
     }
-  }, [loadMarketData, loadCityDetail]);
+  }, [loadMarketData, loadCityDetail, loadSocialData]);
+
+  const handleSelectCatchment = (c: CatchmentArea | null) => {
+    setSelectedCatchment(c);
+    setSelectedStreet(null);
+    if (selectedCity && c) {
+      loadSocialData(selectedCity.id, c.id);
+    } else if (selectedCity) {
+      loadSocialData(selectedCity.id);
+    }
+  };
+
+  const handleSelectStreet = (s: StreetLocation | null) => {
+    setSelectedStreet(s);
+    if (selectedCity && s) {
+      loadSocialData(selectedCity.id, s.catchment_id ?? undefined, s.id);
+    }
+  };
 
   const handleSelectCity = (city: CityLocation) => {
     setSelectedCity(city);
@@ -156,6 +198,7 @@ export default function App() {
     setCityDetail(null);
     setSelectedCatchment(null);
     setSelectedStreet(null);
+    setSocialReport(null);
     setPrediction(null);
     setActiveTab('analysis');
   };
@@ -250,11 +293,8 @@ export default function App() {
               streets={cityDetail.streets}
               selectedCatchment={selectedCatchment}
               selectedStreet={selectedStreet}
-              onSelectCatchment={(c) => {
-                setSelectedCatchment(c);
-                setSelectedStreet(null);
-              }}
-              onSelectStreet={setSelectedStreet}
+              onSelectCatchment={handleSelectCatchment}
+              onSelectStreet={handleSelectStreet}
             />
           )}
           {mapMode === 'city' && detailLoading && (
@@ -276,6 +316,13 @@ export default function App() {
             </button>
             <button className={activeTab === 'market' ? 'active' : ''} onClick={() => setActiveTab('market')}>
               Market
+            </button>
+            <button
+              className={activeTab === 'social' ? 'active' : ''}
+              onClick={() => setActiveTab('social')}
+              disabled={!selectedCity}
+            >
+              Social
             </button>
             <button className={activeTab === 'chat' ? 'active' : ''} onClick={() => setActiveTab('chat')}>
               AI Chat
@@ -299,10 +346,13 @@ export default function App() {
               streets={cityDetail?.streets ?? []}
               selectedCatchment={selectedCatchment}
               selectedStreet={selectedStreet}
-              onSelectCatchment={setSelectedCatchment}
-              onSelectStreet={setSelectedStreet}
+              onSelectCatchment={handleSelectCatchment}
+              onSelectStreet={handleSelectStreet}
               loading={detailLoading}
             />
+          )}
+          {activeTab === 'social' && (
+            <SocialPanel report={socialReport} loading={socialLoading} />
           )}
           {activeTab === 'market' && (
             <MarketPanel

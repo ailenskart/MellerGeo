@@ -140,6 +140,21 @@ def _fallback_response(question: str, context: dict[str, Any]) -> str:
             f"Holiday boost: {market.get('holiday_boost', 'Q4 gifting season')}."
         )
 
+    if any(w in q for w in ["social", "instagram", "twitter", "review", "google review", "sentiment", "buzz", "where do people shop", "shopping"]):
+        social = context.get("social_intelligence", {})
+        if social:
+            where = ", ".join(social.get("where_people_shop", [])[:3]) or "various high streets"
+            return (
+                f"**Social intelligence for {city_name}**:\n"
+                f"- Overall sentiment: **{social.get('sentiment', 'Positive')}**\n"
+                f"- Shopping intent score: **{social.get('shopping_intent', 0)}/100**\n"
+                f"- Google avg rating: **{social.get('google_rating', 4.4)}/5**\n"
+                f"- Instagram mentions/month: **{social.get('instagram_mentions', 0):,}**\n"
+                f"- Where people shop: **{where}**\n\n"
+                f"Check the **Social** tab for Google reviews, Instagram posts, and X/Twitter shopping buzz."
+            )
+        return f"Select a city and open the Social tab to see Google, Instagram, and Twitter shopping intelligence for {city_name}."
+
     if any(w in q for w in ["store", "size", "location", "google", "maps", "address"]):
         stores = context.get("meller_stores", [])
         if stores:
@@ -186,7 +201,7 @@ def _fallback_response(question: str, context: dict[str, Any]) -> str:
         f"- **Competitors** — Ray-Ban, Oakley, and other sunglasses brands nearby\n"
         f"- **Seasonality** — peak months, tourist patterns\n"
         f"- **Store locations** — existing Meller stores via Google Maps\n"
-        f"- **Market assessment** — opportunity and saturation scores\n\n"
+        f"- **Social reviews** — Google, Instagram, and X/Twitter shopping buzz\n"
         f"Select a city on the map for location-specific analysis. "
         f"Set OPENAI_API_KEY for full AI-powered responses."
     )

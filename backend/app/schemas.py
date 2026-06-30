@@ -140,6 +140,65 @@ class BatchPredictRequest(BaseModel):
     country: str | None = None
 
 
+class SocialReview(BaseModel):
+    author: str
+    rating: float | None = None
+    text: str
+    time: str
+    source: str
+    likes: int | None = None
+    comments: int | None = None
+    sentiment: str | None = None
+
+
+class ShoppingDestination(BaseModel):
+    name: str
+    social_buzz_score: float
+    google_rating: float
+    foot_traffic_estimate: float
+    instagram_mentions: int
+    why_popular: str
+    best_for: str
+
+
+class PlatformSocialData(BaseModel):
+    platform: str
+    sentiment_score: float
+    mention_volume_monthly: int | None = None
+    average_rating: float | None = None
+    total_reviews: int | None = None
+    review_count_analyzed: int | None = None
+    engagement_rate: float | None = None
+    top_posts: list[dict] = []
+    top_rated_nearby: list[dict] = []
+    reviews: list[SocialReview] = []
+    hashtag_volume: dict[str, int] = {}
+    trending_topics: list[str] = []
+    shopping_tags: list[str] = []
+    influencer_visits_monthly: int | None = None
+    shopping_intent_mentions: int | None = None
+
+
+class SocialIntelligenceReport(BaseModel):
+    location: str
+    city: str
+    country: str
+    latitude: float
+    longitude: float
+    overall_sentiment_score: float
+    overall_sentiment_label: str
+    shopping_intent_score: float
+    google: PlatformSocialData
+    instagram: PlatformSocialData
+    twitter: PlatformSocialData
+    shopping_destinations: list[ShoppingDestination]
+    top_positive_themes: list[str]
+    top_negative_themes: list[str]
+    where_people_shop: list[str]
+    data_sources: dict[str, bool]
+    summary: str
+
+
 class CatchmentArea(BaseModel):
     id: str
     name: str

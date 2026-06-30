@@ -14,3 +14,7 @@ services:
         sync: false
       - key: GOOGLE_MAPS_API_KEY
         sync: false
+      - key: INSTAGRAM_ACCESS_TOKEN
+        sync: false
+      - key: TWITTER_BEARER_TOKEN
+        sync: false
