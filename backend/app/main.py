@@ -1,6 +1,7 @@
 """FastAPI application for Meller Geo Intelligence."""
 
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -20,7 +21,7 @@ from app.ai_intelligence import (
     build_city_intelligence_bundle,
     build_verified_intelligence,
 )
-from app.google_maps import get_google_api_status
+from app.google_maps import get_google_api_status, probe_google_maps_api
 from app.chat_service import chat
 from app.commercial_properties import search_commercial_properties
 from app.catchment import analyze_city_catchments, analyze_city_streets
@@ -47,10 +48,18 @@ from app.schemas import (
 )
 from app.seasonality import compute_monthly_revenue, get_market_insights
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await probe_google_maps_api()
+    yield
+
+
 app = FastAPI(
     title="Meller Geo Intelligence",
     description="AI-powered store location intelligence for Meller eyewear expansion across Europe",
     version="2.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -111,6 +120,8 @@ def health():
         "google_maps_enabled": bool(os.getenv("GOOGLE_MAPS_API_KEY")),
         "google_maps_live": gstatus.get("live", False),
         "google_api_error": gstatus.get("error"),
+        "google_enable_url": gstatus.get("enable_url"),
+        "google_fix_instructions": gstatus.get("fix_instructions"),
         "ai_verification_enabled": bool(os.getenv("OPENAI_API_KEY")),
     }
 

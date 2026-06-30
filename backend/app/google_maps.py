@@ -1,22 +1,23 @@
-"""Google Maps / Places integration for store lookup and location intelligence."""
+"""Google Maps / Places integration — Places API (New) only."""
 
 from __future__ import annotations
 
 import os
+import re
 from typing import Any
 
 import httpx
 
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "")
-PLACES_API_BASE = "https://maps.googleapis.com/maps/api/place"
 PLACES_NEW_BASE = "https://places.googleapis.com/v1"
 
-# Set after first API call — lets UI show why live data is missing
 _google_api_status: dict[str, Any] = {
     "configured": bool(GOOGLE_MAPS_API_KEY),
     "live": False,
-    "api_used": None,
+    "api_used": "places_new",
     "error": None,
+    "enable_url": "https://console.cloud.google.com/apis/library/places.googleapis.com",
+    "fix_instructions": None,
 }
 
 MELLER_SEARCH_QUERIES = [
@@ -48,6 +49,89 @@ def get_google_api_status() -> dict[str, Any]:
     return dict(_google_api_status)
 
 
+def _parse_enable_url(error_message: str) -> str:
+    match = re.search(r"project\s+(\d+)", error_message)
+    if match:
+        return f"https://console.developers.google.com/apis/api/places.googleapis.com/overview?project={match.group(1)}"
+    return "https://console.cloud.google.com/apis/library/places.googleapis.com"
+
+
+def _friendly_error(raw: str) -> str:
+    lower = raw.lower()
+    if "legacy" in lower or "not enabled" in lower or "disabled" in lower:
+        return (
+            "Places API (New) is not enabled for your Google Cloud project. "
+            "Enable it using the link below — the old Places API is no longer used."
+        )
+    if "permission" in lower or "denied" in lower:
+        return f"Google Maps access denied: {raw}"
+    return raw
+
+
+async def probe_google_maps_api() -> dict[str, Any]:
+    """Check Places API (New) on startup and cache status for the UI."""
+    if not GOOGLE_MAPS_API_KEY:
+        _google_api_status.update({
+            "configured": False,
+            "live": False,
+            "error": "GOOGLE_MAPS_API_KEY not set",
+            "fix_instructions": "Add your API key to backend/.env or Render environment variables.",
+        })
+        return get_google_api_status()
+
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(
+                f"{PLACES_NEW_BASE}/places:searchText",
+                headers={
+                    "Content-Type": "application/json",
+                    "X-Goog-Api-Key": GOOGLE_MAPS_API_KEY,
+                    "X-Goog-FieldMask": "places.id",
+                },
+                json={
+                    "textQuery": "sunglasses store Barcelona",
+                    "locationBias": {
+                        "circle": {
+                            "center": {"latitude": 41.3851, "longitude": 2.1734},
+                            "radius": 1000.0,
+                        }
+                    },
+                },
+            )
+            if resp.status_code == 200:
+                _google_api_status.update({
+                    "configured": True,
+                    "live": True,
+                    "api_used": "places_new",
+                    "error": None,
+                    "enable_url": _parse_enable_url(""),
+                    "fix_instructions": None,
+                })
+            else:
+                raw = resp.json().get("error", {}).get("message", resp.text[:200])
+                _google_api_status.update({
+                    "configured": True,
+                    "live": False,
+                    "api_used": "places_new",
+                    "error": _friendly_error(raw),
+                    "enable_url": _parse_enable_url(raw),
+                    "fix_instructions": (
+                        "1. Open the Enable link below\n"
+                        "2. Click ENABLE on Places API (New)\n"
+                        "3. Wait 2–5 minutes, then refresh this app"
+                    ),
+                })
+    except Exception as exc:
+        _google_api_status.update({
+            "configured": True,
+            "live": False,
+            "error": str(exc),
+            "fix_instructions": "Check your API key and network connection.",
+        })
+
+    return get_google_api_status()
+
+
 async def search_places(
     query: str,
     latitude: float,
@@ -55,18 +139,9 @@ async def search_places(
     radius_m: int = 5000,
 ) -> list[dict[str, Any]]:
     if not GOOGLE_MAPS_API_KEY:
-        _google_api_status.update({
-            "configured": False,
-            "live": False,
-            "error": "GOOGLE_MAPS_API_KEY not set",
-        })
         return _mock_places(query, latitude, longitude)
 
     places = await _search_places_new(query, latitude, longitude, radius_m)
-    if places is not None:
-        return places
-
-    places = await _search_places_legacy(query, latitude, longitude, radius_m)
     if places is not None:
         return places
 
@@ -96,64 +171,33 @@ async def _search_places_new(
                 },
             )
             if resp.status_code != 200:
-                err = resp.json().get("error", {}).get("message", resp.text[:120])
+                raw = resp.json().get("error", {}).get("message", resp.text[:200])
                 _google_api_status.update({
                     "configured": True,
                     "live": False,
                     "api_used": "places_new",
-                    "error": err,
+                    "error": _friendly_error(raw),
+                    "enable_url": _parse_enable_url(raw),
+                    "fix_instructions": (
+                        "Enable Places API (New) in Google Cloud Console, then wait 2–5 minutes."
+                    ),
                 })
                 return None
 
             results = [_format_place_new(p) for p in resp.json().get("places", [])]
-            if results:
-                _google_api_status.update({
-                    "configured": True,
-                    "live": True,
-                    "api_used": "places_new",
-                    "error": None,
-                })
+            _google_api_status.update({
+                "configured": True,
+                "live": True,
+                "api_used": "places_new",
+                "error": None,
+            })
             return results
     except Exception as exc:
-        _google_api_status.update({"configured": True, "live": False, "error": str(exc)})
-        return None
-
-
-async def _search_places_legacy(
-    query: str, latitude: float, longitude: float, radius_m: int
-) -> list[dict[str, Any]] | None:
-    try:
-        async with httpx.AsyncClient(timeout=15) as client:
-            resp = await client.get(
-                f"{PLACES_API_BASE}/textsearch/json",
-                params={
-                    "query": query,
-                    "location": f"{latitude},{longitude}",
-                    "radius": radius_m,
-                    "key": GOOGLE_MAPS_API_KEY,
-                },
-            )
-            data = resp.json()
-            if data.get("status") != "OK":
-                _google_api_status.update({
-                    "configured": True,
-                    "live": False,
-                    "api_used": "places_legacy",
-                    "error": data.get("error_message", data.get("status")),
-                })
-                return None
-
-            results = [_format_place_legacy(p) for p in data.get("results", [])]
-            if results:
-                _google_api_status.update({
-                    "configured": True,
-                    "live": True,
-                    "api_used": "places_legacy",
-                    "error": None,
-                })
-            return results
-    except Exception as exc:
-        _google_api_status.update({"configured": True, "live": False, "error": str(exc)})
+        _google_api_status.update({
+            "configured": True,
+            "live": False,
+            "error": str(exc),
+        })
         return None
 
 
@@ -175,24 +219,6 @@ async def get_place_details(place_id: str) -> dict[str, Any] | None:
                 return _format_place_new(resp.json(), detailed=True)
     except Exception:
         pass
-
-    try:
-        async with httpx.AsyncClient(timeout=15) as client:
-            resp = await client.get(
-                f"{PLACES_API_BASE}/details/json",
-                params={
-                    "place_id": place_id.replace("places/", ""),
-                    "fields": "name,formatted_address,geometry,rating,user_ratings_total,"
-                              "opening_hours,photos,website,formatted_phone_number,"
-                              "business_status,types,reviews",
-                    "key": GOOGLE_MAPS_API_KEY,
-                },
-            )
-            data = resp.json()
-            if data.get("status") == "OK":
-                return _format_place_legacy(data.get("result", {}), detailed=True)
-    except Exception:
-        pass
     return None
 
 
@@ -204,7 +230,7 @@ async def find_meller_stores(latitude: float, longitude: float, city: str | None
         if official:
             return [_official_store_to_place(s) for s in official]
 
-    if GOOGLE_MAPS_API_KEY:
+    if GOOGLE_MAPS_API_KEY and _google_api_status.get("live"):
         results = []
         seen_ids: set[str] = set()
         for query in MELLER_SEARCH_QUERIES:
@@ -258,46 +284,36 @@ async def find_nearby_competitors(latitude: float, longitude: float) -> list[dic
 
 
 async def geocode_address(address: str) -> dict[str, Any] | None:
+    """Geocode via Places API (New) search — no legacy Geocoding API needed."""
     if not GOOGLE_MAPS_API_KEY:
         return None
 
-    async with httpx.AsyncClient(timeout=15) as client:
-        resp = await client.get(
-            "https://maps.googleapis.com/maps/api/geocode/json",
-            params={"address": address, "key": GOOGLE_MAPS_API_KEY},
-        )
-        data = resp.json()
-        if data.get("status") != "OK" or not data.get("results"):
-            return None
-        result = data["results"][0]
-        loc = result["geometry"]["location"]
-        return {
-            "address": result["formatted_address"],
-            "latitude": loc["lat"],
-            "longitude": loc["lng"],
-            "place_id": result.get("place_id"),
-        }
-
-
-def _format_place_legacy(place: dict, detailed: bool = False) -> dict[str, Any]:
-    geometry = place.get("geometry", {})
-    location = geometry.get("location", {})
-    return {
-        "place_id": place.get("place_id", ""),
-        "name": place.get("name", ""),
-        "address": place.get("formatted_address", place.get("vicinity", "")),
-        "latitude": location.get("lat", 0),
-        "longitude": location.get("lng", 0),
-        "rating": place.get("rating"),
-        "user_ratings_total": place.get("user_ratings_total", 0),
-        "business_status": place.get("business_status", "OPERATIONAL"),
-        "types": place.get("types", []),
-        "website": place.get("website") if detailed else None,
-        "phone": place.get("formatted_phone_number") if detailed else None,
-        "estimated_size_sqm": _estimate_store_size(place),
-        "data_source": "google_live",
-        "reviews": place.get("reviews", []) if detailed else [],
-    }
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(
+                f"{PLACES_NEW_BASE}/places:searchText",
+                headers={
+                    "Content-Type": "application/json",
+                    "X-Goog-Api-Key": GOOGLE_MAPS_API_KEY,
+                    "X-Goog-FieldMask": "places.id,places.formattedAddress,places.location",
+                },
+                json={"textQuery": address},
+            )
+            if resp.status_code != 200:
+                return None
+            places = resp.json().get("places", [])
+            if not places:
+                return None
+            p = places[0]
+            loc = p.get("location", {})
+            return {
+                "address": p.get("formattedAddress", address),
+                "latitude": loc.get("latitude", 0),
+                "longitude": loc.get("longitude", 0),
+                "place_id": p.get("id", ""),
+            }
+    except Exception:
+        return None
 
 
 def _format_place_new(place: dict, detailed: bool = False) -> dict[str, Any]:
