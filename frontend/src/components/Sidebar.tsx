@@ -16,6 +16,8 @@ interface Props {
   storeSize: number;
   onStoreSizeChange: (size: number) => void;
   loading: boolean;
+  inShortlist?: boolean;
+  onToggleShortlist?: () => void;
 }
 
 function getViabilityClass(score: number): string {
@@ -31,6 +33,8 @@ export default function Sidebar({
   storeSize,
   onStoreSizeChange,
   loading,
+  inShortlist = false,
+  onToggleShortlist,
 }: Props) {
   if (!city) {
     return (
@@ -91,6 +95,15 @@ export default function Sidebar({
           <span className="badge">GDP €{formatNumber(city.gdp_per_capita)}</span>
           {city.has_existing_store && <span className="badge existing">MELLER Store</span>}
         </div>
+        {onToggleShortlist && (
+          <button
+            type="button"
+            className={`shortlist-add-btn ${inShortlist ? 'active' : ''}`}
+            onClick={onToggleShortlist}
+          >
+            {inShortlist ? '✓ On expansion shortlist' : '+ Add to expansion shortlist'}
+          </button>
+        )}
       </div>
 
       <div className="sidebar-section">

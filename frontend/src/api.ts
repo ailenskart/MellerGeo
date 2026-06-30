@@ -311,7 +311,76 @@ export interface CityIntelligenceBundle {
   google_status?: Record<string, unknown>;
 }
 
+export interface SiteVisitContext {
+  city: string;
+  country: string;
+  label: string;
+  latitude: number;
+  longitude: number;
+  catchment_name: string | null;
+  street_name: string | null;
+  foot_traffic_index: number;
+  tourist_index: number;
+  viability_score: number;
+  street_view: { embed_url: string | null; static_image_url: string | null; open_url: string; available: boolean };
+  satellite: { embed_url: string | null; open_url: string };
+  map_links: Record<string, string>;
+  wikimedia_photos: { title: string; thumbnail_url: string; page_url: string }[];
+  site_assessment: string;
+  expansion_checklist: { item: string; category: string }[];
+}
+
+export interface CityComparisonItem {
+  city_id: string;
+  city: string;
+  country: string;
+  population: number;
+  gdp_per_capita: number;
+  city_tier: number;
+  foot_traffic_index: number;
+  tourist_index: number;
+  has_existing_store: boolean;
+  predicted_revenue_eur: number;
+  viability_score: number;
+  viability_label: string;
+  revenue_per_sqm: number;
+  recommendation: string;
+}
+
+export interface CityComparisonResult {
+  cities: CityComparisonItem[];
+  winner: CityComparisonItem | null;
+  summary: string;
+  store_size_sqm: number;
+}
+
 const API_BASE = '/api';
+
+export async function fetchSiteVisit(
+  cityId: string,
+  storeSize: number = 80,
+  params?: { catchmentId?: string; streetId?: string },
+): Promise<SiteVisitContext> {
+  const qs = new URLSearchParams({ store_size_sqm: String(storeSize) });
+  if (params?.catchmentId) qs.set('catchment_id', params.catchmentId);
+  if (params?.streetId) qs.set('street_id', params.streetId);
+  const res = await fetch(`${API_BASE}/cities/${cityId}/site-visit?${qs}`);
+  if (!res.ok) throw new Error('Site visit failed');
+  return res.json();
+}
+
+export async function compareCities(
+  cityIds: string[],
+  storeSize: number = 80,
+): Promise<CityComparisonResult> {
+  const res = await fetch(`${API_BASE}/cities/compare`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ city_ids: cityIds, store_size_sqm: storeSize }),
+  });
+  if (!res.ok) throw new Error('City comparison failed');
+  return res.json();
+}
 
 export async function fetchHealth(): Promise<HealthStatus> {
   const res = await fetch(`${API_BASE}/health`);

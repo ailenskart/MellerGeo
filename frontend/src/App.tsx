@@ -6,6 +6,9 @@ import EuropeMap from './components/EuropeMap';
 import LocationPanel from './components/LocationPanel';
 import MarketPanel from './components/MarketPanel';
 import SocialPanel from './components/SocialPanel';
+import SiteVisitPanel from './components/SiteVisitPanel';
+import ComparePanel from './components/ComparePanel';
+import ExpansionShortlist from './components/ExpansionShortlist';
 import Sidebar from './components/Sidebar';
 import {
   batchPredict,
@@ -14,6 +17,7 @@ import {
   fetchCommercialProperties,
   fetchHealth,
   fetchMetrics,
+  fetchSiteVisit,
   predictCity,
   type CatchmentArea,
   type CityDetailAnalysis,
@@ -26,11 +30,14 @@ import {
   type RevenuePrediction,
   type SeasonalityAnalysis,
   type SocialIntelligenceReport,
+  type SiteVisitContext,
   type StoreLookupResult,
   type StreetLocation,
 } from './api';
 
-type Tab = 'analysis' | 'locations' | 'market' | 'social' | 'chat';
+type Tab = 'analysis' | 'locations' | 'market' | 'social' | 'visit' | 'compare' | 'chat'
+
+const SHORTLIST_KEY = 'meller-expansion-shortlist';
 type MapMode = 'europe' | 'city';
 
 export default function App() {
@@ -58,8 +65,22 @@ export default function App() {
   const [dataWarning, setDataWarning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('analysis');
+  const [siteVisit, setSiteVisit] = useState<SiteVisitContext | null>(null);
+  const [siteVisitLoading, setSiteVisitLoading] = useState(false);
+  const [shortlistIds, setShortlistIds] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(SHORTLIST_KEY) || '[]');
+    } catch {
+      return [];
+    }
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTier, setFilterTier] = useState<number | null>(null);
+
+  const shortlist = useMemo(
+    () => shortlistIds.map((id) => cities.find((c) => c.id === id)).filter(Boolean) as CityLocation[],
+    [shortlistIds, cities],
+  );
 
   useEffect(() => {
     Promise.all([fetchHealth(), fetchMetrics()])
@@ -183,6 +204,35 @@ export default function App() {
     await loadIntelligence(cityId, size);
   }, [loadIntelligence]);
 
+  const loadSiteVisit = useCallback(async (
+    cityId: string,
+    size: number,
+    opts?: { catchmentId?: string; streetId?: string },
+  ) => {
+    setSiteVisitLoading(true);
+    try {
+      const data = await fetchSiteVisit(cityId, size, opts);
+      setSiteVisit(data);
+    } catch {
+      setSiteVisit(null);
+    } finally {
+      setSiteVisitLoading(false);
+    }
+  }, []);
+
+  const toggleShortlist = useCallback((cityId: string) => {
+    setShortlistIds((prev) => {
+      const next = prev.includes(cityId) ? prev.filter((id) => id !== cityId) : [...prev, cityId];
+      localStorage.setItem(SHORTLIST_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const clearShortlist = useCallback(() => {
+    setShortlistIds([]);
+    localStorage.removeItem(SHORTLIST_KEY);
+  }, []);
+
   const analyzeCity = useCallback(async (city: CityLocation, size: number) => {
     setLoading(true);
     setMapMode('city');
@@ -194,13 +244,14 @@ export default function App() {
         loadMarketData(city.id, size),
         loadCityDetail(city.id, size),
         loadProperties(city.id, size),
+        loadSiteVisit(city.id, size),
       ]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Analysis failed');
     } finally {
       setLoading(false);
     }
-  }, [loadMarketData, loadCityDetail, loadProperties]);
+  }, [loadMarketData, loadCityDetail, loadProperties, loadSiteVisit]);
 
   const handleSelectCatchment = (c: CatchmentArea | null) => {
     setSelectedCatchment(c);
@@ -209,9 +260,11 @@ export default function App() {
     if (selectedCity && c) {
       loadSocialData(selectedCity.id, c.id);
       loadProperties(selectedCity.id, storeSize, { catchmentId: c.id });
+      loadSiteVisit(selectedCity.id, storeSize, { catchmentId: c.id });
     } else if (selectedCity) {
       loadSocialData(selectedCity.id);
       loadProperties(selectedCity.id, storeSize);
+      loadSiteVisit(selectedCity.id, storeSize);
     }
   };
 
@@ -224,6 +277,11 @@ export default function App() {
         catchmentId: s.catchment_id ?? undefined,
         streetId: s.id,
       });
+      loadSiteVisit(selectedCity.id, storeSize, {
+        catchmentId: s.catchment_id ?? undefined,
+        streetId: s.id,
+      });
+      setActiveTab('visit');
     }
   };
 
@@ -379,20 +437,41 @@ export default function App() {
                 <span className="tab-badge" title="Social data loaded">●</span>
               )}
             </button>
+            <button
+              className={activeTab === 'visit' ? 'active' : ''}
+              onClick={() => setActiveTab('visit')}
+              disabled={!selectedCity}
+            >
+              Site visit
+            </button>
+            <button className={activeTab === 'compare' ? 'active' : ''} onClick={() => setActiveTab('compare')}>
+              Compare
+            </button>
             <button className={activeTab === 'chat' ? 'active' : ''} onClick={() => setActiveTab('chat')}>
               AI Chat
             </button>
           </div>
 
           {activeTab === 'analysis' && (
-            <Sidebar
-              city={selectedCity}
-              prediction={prediction}
-              metrics={metrics}
-              storeSize={storeSize}
-              onStoreSizeChange={handleStoreSizeChange}
-              loading={loading}
-            />
+            <>
+              <ExpansionShortlist
+                shortlist={shortlist}
+                onRemove={toggleShortlist}
+                onClear={clearShortlist}
+                onSelect={handleSelectCity}
+                onCompare={() => setActiveTab('compare')}
+              />
+              <Sidebar
+                city={selectedCity}
+                prediction={prediction}
+                metrics={metrics}
+                storeSize={storeSize}
+                onStoreSizeChange={handleStoreSizeChange}
+                loading={loading}
+                inShortlist={selectedCity ? shortlistIds.includes(selectedCity.id) : false}
+                onToggleShortlist={selectedCity ? () => toggleShortlist(selectedCity.id) : undefined}
+              />
+            </>
           )}
           {activeTab === 'locations' && selectedCity && (
             <LocationPanel
@@ -413,6 +492,17 @@ export default function App() {
           )}
           {activeTab === 'social' && (
             <SocialPanel report={socialReport} loading={socialLoading} />
+          )}
+          {activeTab === 'visit' && (
+            <SiteVisitPanel siteVisit={siteVisit} loading={siteVisitLoading} />
+          )}
+          {activeTab === 'compare' && (
+            <ComparePanel
+              cities={cities}
+              storeSize={storeSize}
+              selectedCity={selectedCity}
+              shortlist={shortlist}
+            />
           )}
           {activeTab === 'market' && (
             <MarketPanel

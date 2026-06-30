@@ -34,7 +34,10 @@ from app.schemas import (
     ChatResponse,
     CityDetailAnalysis,
     CityIntelligenceBundle,
+    CityComparisonResult,
     CommercialPropertySearch,
+    CompareCitiesRequest,
+    SiteVisitContext,
     CatchmentArea,
     CityLocation,
     StreetLocation,
@@ -46,7 +49,7 @@ from app.schemas import (
     SocialIntelligenceReport,
     StoreLookupResult,
 )
-from app.seasonality import compute_monthly_revenue, get_market_insights
+from app.site_visit import compare_cities, get_site_visit_context
 
 
 @asynccontextmanager
@@ -275,6 +278,71 @@ async def get_commercial_properties(
 def list_commercial_brokers():
     from app.commercial_properties_data import COMMERCIAL_BROKERS
     return [{"id": k, **v} for k, v in COMMERCIAL_BROKERS.items()]
+
+
+@app.get("/api/cities/{city_id}/site-visit", response_model=SiteVisitContext)
+async def get_site_visit(
+    city_id: str,
+    store_size_sqm: float = 80,
+    catchment_id: str | None = None,
+    street_id: str | None = None,
+):
+    from app.catchment_data import get_catchment_by_id, get_street_by_id
+
+    city = _get_city(city_id)
+    prediction = _predict_for_city(city, store_size_sqm)
+    features = get_city_features(city["city"], store_size_sqm)
+    tourist_index = features["tourist_index"] if features else city.get("tourist_index", 30)
+    foot_traffic = features["foot_traffic_index"] if features else city.get("foot_traffic_index", 50)
+
+    lat, lon = city["latitude"], city["longitude"]
+    catchment_name = None
+    street_name = None
+    viability = prediction.viability_score
+
+    if street_id:
+        street = get_street_by_id(street_id, city["city"], lat, lon, city["city_tier"])
+        if street:
+            lat, lon = street["lat"], street["lon"]
+            street_name = street["name"]
+            catchment_name = street.get("catchment_name")
+            foot_traffic = street.get("foot_traffic", foot_traffic)
+            catchment_id = street.get("catchment_id")
+
+    if catchment_id:
+        catchment = get_catchment_by_id(catchment_id, city["city"], lat, lon, city["city_tier"])
+        if catchment:
+            lat, lon = catchment["center"][0], catchment["center"][1]
+            catchment_name = catchment["name"]
+            foot_traffic = catchment.get("foot_traffic", foot_traffic)
+            tourist_index = catchment.get("tourist", tourist_index)
+
+    result = await get_site_visit_context(
+        city=city["city"],
+        country=city["country"],
+        latitude=lat,
+        longitude=lon,
+        label=city["city"],
+        catchment_name=catchment_name,
+        street_name=street_name,
+        foot_traffic=foot_traffic,
+        tourist_index=tourist_index,
+        viability_score=viability,
+    )
+    return SiteVisitContext(**result)
+
+
+@app.post("/api/cities/compare", response_model=CityComparisonResult)
+def compare_expansion_cities(request: CompareCitiesRequest):
+    city_list = []
+    predictions = []
+    for cid in request.city_ids:
+        city = _get_city(cid)
+        pred = _predict_for_city(city, request.store_size_sqm)
+        city_list.append(city)
+        predictions.append(pred.model_dump())
+    result = compare_cities(city_list, request.store_size_sqm, predictions)
+    return CityComparisonResult(**result)
 
 
 @app.get("/api/cities/{city_id}/intelligence", response_model=CityIntelligenceBundle)

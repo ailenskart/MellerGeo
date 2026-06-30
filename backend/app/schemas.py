@@ -310,3 +310,51 @@ class CommercialPropertySearch(BaseModel):
     google_live: bool = False
     data_sources: dict[str, int] = Field(default_factory=dict)
     summary: str = ""
+
+
+class SiteVisitContext(BaseModel):
+    city: str
+    country: str
+    label: str
+    latitude: float
+    longitude: float
+    catchment_name: str | None = None
+    street_name: str | None = None
+    foot_traffic_index: float
+    tourist_index: float
+    viability_score: float
+    street_view: dict
+    satellite: dict
+    map_links: dict
+    wikimedia_photos: list[dict] = Field(default_factory=list)
+    site_assessment: str
+    expansion_checklist: list[dict] = Field(default_factory=list)
+
+
+class CityComparisonItem(BaseModel):
+    city_id: str
+    city: str
+    country: str
+    population: int
+    gdp_per_capita: float
+    city_tier: int
+    foot_traffic_index: float
+    tourist_index: float
+    has_existing_store: bool
+    predicted_revenue_eur: float
+    viability_score: float
+    viability_label: str
+    revenue_per_sqm: float
+    recommendation: str
+
+
+class CityComparisonResult(BaseModel):
+    cities: list[CityComparisonItem]
+    winner: CityComparisonItem | None = None
+    summary: str
+    store_size_sqm: float
+
+
+class CompareCitiesRequest(BaseModel):
+    city_ids: list[str] = Field(..., min_length=2, max_length=5)
+    store_size_sqm: float = 80
