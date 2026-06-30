@@ -2,8 +2,6 @@ from pydantic import BaseModel, Field
 
 
 class GeoParameters(BaseModel):
-    """Geographical and market parameters for a potential store location."""
-
     city: str = Field(..., description="City name")
     country: str = Field(..., description="ISO country name")
     latitude: float = Field(..., ge=-90, le=90)
@@ -45,9 +43,12 @@ class CityLocation(BaseModel):
     population: int
     gdp_per_capita: float
     foot_traffic_index: float
+    tourist_index: float = 0
     city_tier: int
     has_existing_store: bool = False
     actual_revenue_eur: float | None = None
+    predicted_revenue_eur: float | None = None
+    viability_score: float | None = None
 
 
 class ModelMetrics(BaseModel):
@@ -56,3 +57,84 @@ class ModelMetrics(BaseModel):
     rmse_eur: float
     training_samples: int
     feature_importance: list[dict[str, float | str]]
+
+
+class ChatMessage(BaseModel):
+    role: str = Field(..., pattern="^(user|assistant|system)$")
+    content: str
+
+
+class ChatRequest(BaseModel):
+    messages: list[ChatMessage]
+    city_id: str | None = None
+    store_size_sqm: float = 80
+
+
+class ChatResponse(BaseModel):
+    message: ChatMessage
+    context_used: list[str]
+    source: str
+
+
+class CompetitorStore(BaseModel):
+    brand: str
+    tier: str
+    latitude: float
+    longitude: float
+    distance_km: float
+    rating: float
+    estimated_annual_revenue_eur: float
+    store_type: str
+
+
+class CompetitorAnalysis(BaseModel):
+    city: str
+    country: str
+    total_competitors: int
+    brands_present: list[str]
+    market_saturation_score: float
+    luxury_competitor_count: int
+    direct_eyewear_stores: int
+    nearest_competitors: list[CompetitorStore]
+    market_assessment: str
+    meller_opportunity_score: float
+
+
+class MonthlyRevenue(BaseModel):
+    month: int
+    month_name: str
+    revenue_eur: float
+    seasonal_index: float
+    season: str
+
+
+class SeasonalityAnalysis(BaseModel):
+    city: str
+    annual_revenue_eur: float
+    monthly_revenue: list[MonthlyRevenue]
+    market_insights: dict
+
+
+class PlaceResult(BaseModel):
+    place_id: str
+    name: str
+    address: str
+    latitude: float
+    longitude: float
+    rating: float | None = None
+    user_ratings_total: int = 0
+    business_status: str = "OPERATIONAL"
+    types: list[str] = []
+    estimated_size_sqm: int = 80
+
+
+class StoreLookupResult(BaseModel):
+    meller_stores: list[PlaceResult]
+    nearby_competitors: list[PlaceResult]
+    google_maps_enabled: bool
+
+
+class BatchPredictRequest(BaseModel):
+    store_size_sqm: float = 80
+    city_tier: int | None = None
+    country: str | None = None

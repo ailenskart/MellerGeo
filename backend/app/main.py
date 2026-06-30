@@ -2,18 +2,34 @@
 
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.chat_service import chat
+from app.competitors import analyze_competitors
+from app.data_generator import get_city_features
+from app.google_maps import find_meller_stores, find_nearby_competitors, geocode_address
 from app.predictor import RevenuePredictor
-from app.schemas import CityLocation, GeoParameters, ModelMetrics, RevenuePrediction
+from app.schemas import (
+    BatchPredictRequest,
+    ChatRequest,
+    ChatResponse,
+    CityLocation,
+    CompetitorAnalysis,
+    GeoParameters,
+    ModelMetrics,
+    RevenuePrediction,
+    SeasonalityAnalysis,
+    StoreLookupResult,
+)
+from app.seasonality import compute_monthly_revenue, get_market_insights
 
 app = FastAPI(
     title="Meller Geo Intelligence",
     description="AI-powered store location intelligence for Meller eyewear expansion across Europe",
-    version="1.0.0",
+    version="2.0.0",
 )
 
 app.add_middleware(
@@ -25,15 +41,41 @@ app.add_middleware(
 )
 
 predictor = RevenuePredictor()
+_prediction_cache: dict[str, RevenuePrediction] = {}
 
-STATIC_DIR = Path(__file__).resolve().parents[1] / "static"
+
+def _get_city(city_id: str) -> dict:
+    cities = predictor.load_cities()
+    city = next((c for c in cities if c["id"] == city_id), None)
+    if not city:
+        raise HTTPException(404, f"City {city_id} not found")
+    return city
+
+
+def _predict_for_city(city: dict, store_size_sqm: float = 80) -> RevenuePrediction:
+    cache_key = f"{city['id']}:{store_size_sqm}"
+    if cache_key in _prediction_cache:
+        return _prediction_cache[cache_key]
+
+    features = get_city_features(city["city"], store_size_sqm)
+    if not features:
+        raise HTTPException(404, f"Features not found for {city['city']}")
+
+    params = GeoParameters(**features)
+    prediction = predictor.predict(params)
+    _prediction_cache[cache_key] = prediction
+    return prediction
 
 
 @app.get("/api/health")
 def health():
+    import os
     return {
         "status": "ok",
         "model_loaded": predictor.pipeline is not None,
+        "city_count": len(predictor.load_cities()),
+        "openai_enabled": bool(os.getenv("OPENAI_API_KEY")),
+        "google_maps_enabled": bool(os.getenv("GOOGLE_MAPS_API_KEY")),
     }
 
 
@@ -45,8 +87,42 @@ def get_metrics():
 
 
 @app.get("/api/cities", response_model=list[CityLocation])
-def get_cities():
-    return predictor.load_cities()
+def get_cities(
+    country: str | None = None,
+    tier: int | None = None,
+    search: str | None = None,
+    limit: int = Query(default=500, le=500),
+):
+    cities = predictor.load_cities()
+    if country:
+        cities = [c for c in cities if c["country"].lower() == country.lower()]
+    if tier:
+        cities = [c for c in cities if c["city_tier"] == tier]
+    if search:
+        q = search.lower()
+        cities = [c for c in cities if q in c["city"].lower() or q in c["country"].lower()]
+    return cities[:limit]
+
+
+@app.post("/api/cities/batch-predict", response_model=list[CityLocation])
+def batch_predict(request: BatchPredictRequest):
+    cities = predictor.load_cities()
+    if request.country:
+        cities = [c for c in cities if c["country"].lower() == request.country.lower()]
+    if request.city_tier:
+        cities = [c for c in cities if c["city_tier"] == request.city_tier]
+
+    results = []
+    for city in cities:
+        try:
+            pred = _predict_for_city(city, request.store_size_sqm)
+            enriched = {**city}
+            enriched["predicted_revenue_eur"] = pred.predicted_annual_revenue_eur
+            enriched["viability_score"] = pred.viability_score
+            results.append(enriched)
+        except HTTPException:
+            results.append(city)
+    return results
 
 
 @app.post("/api/predict", response_model=RevenuePrediction)
@@ -59,24 +135,110 @@ def predict_revenue(params: GeoParameters):
 
 @app.get("/api/cities/{city_id}/predict", response_model=RevenuePrediction)
 def predict_city(city_id: str, store_size_sqm: float = 80):
-    cities = predictor.load_cities()
-    city = next((c for c in cities if c["id"] == city_id), None)
-    if not city:
-        raise HTTPException(404, f"City {city_id} not found")
+    city = _get_city(city_id)
+    return _predict_for_city(city, store_size_sqm)
 
-    from app.data_generator import _derive_geo_features
-    import numpy as np
 
-    city_data = next(
-        c for c in __import__("app.data_generator", fromlist=["EUROPE_CITIES"]).EUROPE_CITIES
-        if c["city"] == city["city"]
+@app.get("/api/cities/{city_id}/competitors", response_model=CompetitorAnalysis)
+def get_competitors(city_id: str):
+    city = _get_city(city_id)
+    features = get_city_features(city["city"])
+    if not features:
+        raise HTTPException(404, "City features not found")
+
+    result = analyze_competitors(
+        city=city["city"],
+        country=city["country"],
+        latitude=city["latitude"],
+        longitude=city["longitude"],
+        population=city["population"],
+        city_tier=city["city_tier"],
+        gdp_per_capita=city["gdp_per_capita"],
     )
-    features = _derive_geo_features(city_data, np.random.default_rng(0))
-    features["store_size_sqm"] = store_size_sqm
+    return CompetitorAnalysis(
+        nearest_competitors=result["nearest_competitors"],
+        **{k: v for k, v in result.items() if k != "nearest_competitors" and k != "all_competitors"},
+    )
 
-    params = GeoParameters(**features)
-    return predictor.predict(params)
 
+@app.get("/api/cities/{city_id}/seasonality", response_model=SeasonalityAnalysis)
+def get_seasonality(city_id: str, store_size_sqm: float = 80):
+    city = _get_city(city_id)
+    prediction = _predict_for_city(city, store_size_sqm)
+    features = get_city_features(city["city"], store_size_sqm)
+    tourist_index = features["tourist_index"] if features else city.get("tourist_index", 30)
+
+    monthly = compute_monthly_revenue(
+        prediction.predicted_annual_revenue_eur,
+        city["city"],
+        tourist_index,
+    )
+    insights = get_market_insights(
+        city["city"], city["country"], tourist_index, city["gdp_per_capita"]
+    )
+
+    return SeasonalityAnalysis(
+        city=city["city"],
+        annual_revenue_eur=prediction.predicted_annual_revenue_eur,
+        monthly_revenue=monthly,
+        market_insights=insights,
+    )
+
+
+@app.get("/api/cities/{city_id}/stores", response_model=StoreLookupResult)
+async def lookup_stores(city_id: str):
+    import os
+    city = _get_city(city_id)
+    meller = await find_meller_stores(city["latitude"], city["longitude"])
+    competitors = await find_nearby_competitors(city["latitude"], city["longitude"])
+    return StoreLookupResult(
+        meller_stores=meller,
+        nearby_competitors=competitors,
+        google_maps_enabled=bool(os.getenv("GOOGLE_MAPS_API_KEY")),
+    )
+
+
+@app.post("/api/chat", response_model=ChatResponse)
+async def chat_endpoint(request: ChatRequest):
+    context: dict = {}
+
+    if request.city_id:
+        city = _get_city(request.city_id)
+        context["selected_city"] = city
+
+        try:
+            prediction = _predict_for_city(city, request.store_size_sqm)
+            context["prediction"] = prediction.model_dump()
+        except HTTPException:
+            pass
+
+        features = get_city_features(city["city"], request.store_size_sqm)
+        if features:
+            comp = analyze_competitors(
+                city=city["city"], country=city["country"],
+                latitude=city["latitude"], longitude=city["longitude"],
+                population=city["population"], city_tier=city["city_tier"],
+                gdp_per_capita=city["gdp_per_capita"],
+            )
+            context["competitors"] = {k: v for k, v in comp.items() if k != "all_competitors"}
+
+            tourist_index = features["tourist_index"]
+            monthly = compute_monthly_revenue(
+                context.get("prediction", {}).get("predicted_annual_revenue_eur", 250000),
+                city["city"], tourist_index,
+            )
+            context["seasonality"] = {"monthly": monthly}
+            context["market_insights"] = get_market_insights(
+                city["city"], city["country"], tourist_index, city["gdp_per_capita"]
+            )
+
+        stores = await find_meller_stores(city["latitude"], city["longitude"])
+        context["meller_stores"] = stores
+
+    return await chat(request, context)
+
+
+STATIC_DIR = Path(__file__).resolve().parents[1] / "static"
 
 if STATIC_DIR.exists():
     assets_dir = STATIC_DIR / "assets"

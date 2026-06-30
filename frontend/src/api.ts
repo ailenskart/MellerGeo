@@ -40,9 +40,12 @@ export interface CityLocation {
   population: number;
   gdp_per_capita: number;
   foot_traffic_index: number;
+  tourist_index: number;
   city_tier: number;
   has_existing_store: boolean;
   actual_revenue_eur: number | null;
+  predicted_revenue_eur?: number | null;
+  viability_score?: number | null;
 }
 
 export interface ModelMetrics {
@@ -53,10 +56,95 @@ export interface ModelMetrics {
   feature_importance: { feature: string; importance: number }[];
 }
 
+export interface ChatMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+}
+
+export interface ChatResponse {
+  message: ChatMessage;
+  context_used: string[];
+  source: string;
+}
+
+export interface CompetitorStore {
+  brand: string;
+  tier: string;
+  latitude: number;
+  longitude: number;
+  distance_km: number;
+  rating: number;
+  estimated_annual_revenue_eur: number;
+  store_type: string;
+}
+
+export interface CompetitorAnalysis {
+  city: string;
+  country: string;
+  total_competitors: number;
+  brands_present: string[];
+  market_saturation_score: number;
+  luxury_competitor_count: number;
+  direct_eyewear_stores: number;
+  nearest_competitors: CompetitorStore[];
+  market_assessment: string;
+  meller_opportunity_score: number;
+}
+
+export interface MonthlyRevenue {
+  month: number;
+  month_name: string;
+  revenue_eur: number;
+  seasonal_index: number;
+  season: string;
+}
+
+export interface SeasonalityAnalysis {
+  city: string;
+  annual_revenue_eur: number;
+  monthly_revenue: MonthlyRevenue[];
+  market_insights: Record<string, string | number | boolean>;
+}
+
+export interface PlaceResult {
+  place_id: string;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  rating: number | null;
+  user_ratings_total: number;
+  estimated_size_sqm: number;
+}
+
+export interface StoreLookupResult {
+  meller_stores: PlaceResult[];
+  nearby_competitors: PlaceResult[];
+  google_maps_enabled: boolean;
+}
+
+export interface HealthStatus {
+  status: string;
+  model_loaded: boolean;
+  city_count: number;
+  openai_enabled: boolean;
+  google_maps_enabled: boolean;
+}
+
 const API_BASE = '/api';
 
-export async function fetchCities(): Promise<CityLocation[]> {
-  const res = await fetch(`${API_BASE}/cities`);
+export async function fetchHealth(): Promise<HealthStatus> {
+  const res = await fetch(`${API_BASE}/health`);
+  if (!res.ok) throw new Error('Health check failed');
+  return res.json();
+}
+
+export async function fetchCities(params?: { country?: string; tier?: number; search?: string }): Promise<CityLocation[]> {
+  const qs = new URLSearchParams();
+  if (params?.country) qs.set('country', params.country);
+  if (params?.tier) qs.set('tier', String(params.tier));
+  if (params?.search) qs.set('search', params.search);
+  const res = await fetch(`${API_BASE}/cities?${qs}`);
   if (!res.ok) throw new Error('Failed to fetch cities');
   return res.json();
 }
@@ -67,19 +155,55 @@ export async function fetchMetrics(): Promise<ModelMetrics> {
   return res.json();
 }
 
+export async function batchPredict(storeSize: number = 80): Promise<CityLocation[]> {
+  const res = await fetch(`${API_BASE}/cities/batch-predict`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ store_size_sqm: storeSize }),
+  });
+  if (!res.ok) throw new Error('Batch prediction failed');
+  return res.json();
+}
+
 export async function predictCity(cityId: string, storeSize: number): Promise<RevenuePrediction> {
   const res = await fetch(`${API_BASE}/cities/${cityId}/predict?store_size_sqm=${storeSize}`);
   if (!res.ok) throw new Error('Prediction failed');
   return res.json();
 }
 
-export async function predictCustom(params: GeoParameters): Promise<RevenuePrediction> {
-  const res = await fetch(`${API_BASE}/predict`, {
+export async function fetchCompetitors(cityId: string): Promise<CompetitorAnalysis> {
+  const res = await fetch(`${API_BASE}/cities/${cityId}/competitors`);
+  if (!res.ok) throw new Error('Competitor analysis failed');
+  return res.json();
+}
+
+export async function fetchSeasonality(cityId: string, storeSize: number): Promise<SeasonalityAnalysis> {
+  const res = await fetch(`${API_BASE}/cities/${cityId}/seasonality?store_size_sqm=${storeSize}`);
+  if (!res.ok) throw new Error('Seasonality analysis failed');
+  return res.json();
+}
+
+export async function fetchStores(cityId: string): Promise<StoreLookupResult> {
+  const res = await fetch(`${API_BASE}/cities/${cityId}/stores`);
+  if (!res.ok) throw new Error('Store lookup failed');
+  return res.json();
+}
+
+export async function sendChat(
+  messages: ChatMessage[],
+  cityId?: string | null,
+  storeSize?: number,
+): Promise<ChatResponse> {
+  const res = await fetch(`${API_BASE}/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params),
+    body: JSON.stringify({
+      messages,
+      city_id: cityId ?? null,
+      store_size_sqm: storeSize ?? 80,
+    }),
   });
-  if (!res.ok) throw new Error('Prediction failed');
+  if (!res.ok) throw new Error('Chat failed');
   return res.json();
 }
 

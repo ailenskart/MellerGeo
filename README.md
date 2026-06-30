@@ -6,12 +6,16 @@ AI-powered geographical intelligence platform for **Meller** eyewear store expan
 
 ## Features
 
-- **Interactive Europe Map** — Explore 40+ European cities with color-coded viability markers
-- **ML Revenue Prediction** — Gradient Boosting model trained on geographical parameters
-- **15 Geo Parameters** — Population, GDP, foot traffic, tourism, competitor density, luxury retail proximity, transport, rent, demographics, e-commerce penetration, and more
+- **176+ European Cities** — Comprehensive coverage across 30+ countries
+- **Interactive Europe Map** — Color-coded viability markers with search and tier filters
+- **ML Revenue Prediction** — Gradient Boosting model trained on 15 geo parameters (85% accuracy)
+- **AI Chat Advisor** — LLM-powered assistant for revenue, competitors, seasonality, and expansion strategy
+- **Competitor Analysis** — Ray-Ban, Oakley, Persol, Gentle Monster, Hawkers, and 15+ sunglasses brands
+- **Seasonal Revenue Forecasting** — Monthly breakdown with tourist season and peak period analysis
+- **Google Maps Integration** — Live Meller store lookup, competitor POIs, and estimated store sizes
+- **15 Geo Parameters** — Population, GDP, foot traffic, tourism, competitor density, and more
 - **Viability Scoring** — 0–100 score with actionable recommendations
 - **Store Size Simulator** — Adjust store size (40–200 m²) and see revenue impact in real time
-- **Feature Importance** — Understand which factors drive revenue most
 
 ## Architecture
 
@@ -46,6 +50,9 @@ docker run -p 8000:8000 meller-geo
 1. Push this repo to GitHub
 2. Go to [Render Dashboard](https://dashboard.render.com) → **New** → **Blueprint**
 3. Connect the `MellerGeo` repository and deploy
+4. Set environment variables in Render:
+   - `OPENAI_API_KEY` — enables full LLM chat (optional, falls back to local advisor)
+   - `GOOGLE_MAPS_API_KEY` — enables live store/competitor lookup via Google Places (optional)
 
 The included `render.yaml` configures a Docker web service in the Frankfurt region with health checks on `/api/health`.
 
