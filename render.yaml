@@ -10,3 +10,11 @@ services:
     envVars:
       - key: PORT
         value: 8000
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GOOGLE_MAPS_API_KEY
+        sync: false
+      - key: INSTAGRAM_ACCESS_TOKEN
+        sync: false
+      - key: TWITTER_BEARER_TOKEN
+        sync: false

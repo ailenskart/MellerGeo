@@ -1,68 +1,68 @@
 {
-  "r2_score": 0.6594,
-  "mae_eur": 25164.0,
-  "rmse_eur": 32971.0,
-  "training_samples": 160,
+  "r2_score": 0.8515,
+  "mae_eur": 20425.0,
+  "rmse_eur": 25896.0,
+  "training_samples": 704,
   "feature_importance": [
     {
       "feature": "Household Income",
-      "importance": 0.6694
-    },
-    {
-      "feature": "GDP per Capita",
-      "importance": 0.0848
+      "importance": 0.6912
     },
     {
       "feature": "Store Size",
-      "importance": 0.0642
-    },
-    {
-      "feature": "Competitor Density",
-      "importance": 0.0351
-    },
-    {
-      "feature": "Foot Traffic",
-      "importance": 0.0342
-    },
-    {
-      "feature": "Tourist Index",
-      "importance": 0.0203
-    },
-    {
-      "feature": "Public Transport",
-      "importance": 0.019
-    },
-    {
-      "feature": "Retail Rent",
-      "importance": 0.0147
-    },
-    {
-      "feature": "Population Density",
-      "importance": 0.0116
-    },
-    {
-      "feature": "E-commerce Penetration",
-      "importance": 0.0113
-    },
-    {
-      "feature": "Mall vs Street",
-      "importance": 0.0099
-    },
-    {
-      "feature": "Median Age",
-      "importance": 0.0099
-    },
-    {
-      "feature": "Population",
-      "importance": 0.008
-    },
-    {
-      "feature": "Luxury Retail Proximity",
-      "importance": 0.0056
+      "importance": 0.0864
     },
     {
       "feature": "City Tier",
-      "importance": 0.0021
+      "importance": 0.0443
+    },
+    {
+      "feature": "Tourist Index",
+      "importance": 0.0319
+    },
+    {
+      "feature": "Median Age",
+      "importance": 0.0233
+    },
+    {
+      "feature": "GDP per Capita",
+      "importance": 0.0219
+    },
+    {
+      "feature": "Competitor Density",
+      "importance": 0.0189
+    },
+    {
+      "feature": "Public Transport",
+      "importance": 0.0178
+    },
+    {
+      "feature": "Population",
+      "importance": 0.0118
+    },
+    {
+      "feature": "Foot Traffic",
+      "importance": 0.0112
+    },
+    {
+      "feature": "Population Density",
+      "importance": 0.0111
+    },
+    {
+      "feature": "E-commerce Penetration",
+      "importance": 0.0106
+    },
+    {
+      "feature": "Mall vs Street",
+      "importance": 0.0103
+    },
+    {
+      "feature": "Retail Rent",
+      "importance": 0.0051
+    },
+    {
+      "feature": "Luxury Retail Proximity",
+      "importance": 0.0042
     }
   ]
 }

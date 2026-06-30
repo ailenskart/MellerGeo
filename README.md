@@ -1,17 +1,35 @@
-# Meller Geo Intelligence
+# MELLER Geo Intelligence
 
-AI-powered geographical intelligence platform for **Meller** eyewear store expansion across Europe. The tool learns from 15+ geographical and market parameters to predict average annual revenue for potential store locations.
+Internal expansion intelligence platform for **[MELLER](https://mellerbrand.com/)** — the Barcelona-born sunglasses and eyewear brand trusted by 3M+ customers.
 
-![Meller Geo Intelligence](https://img.shields.io/badge/Meller-Geo%20Intelligence-c8a96e)
+Built to help MELLER plan **MELLER Factory** store openings across Europe, learning from geographical parameters to predict average annual revenue.
+
+![MELLER](https://img.shields.io/badge/MELLER-Geo%20Intelligence-FF6723)
+
+## Official MELLER Stores
+
+Per [mellerbrand.com/pages/our-stores](https://mellerbrand.com/pages/our-stores):
+
+| City | Address | Concept |
+|------|---------|---------|
+| Barcelona | Calle Portaferrissa 18 | MELLER Factory flagship |
+| Barcelona | Carrer de l'Argenteria 63 | MELLER Factory — Born |
+| Amsterdam | 160 Kalverstraat | MELLER Factory + photo booth |
+| Paris | 19 Rue des Rosiers | MELLER Factory — Le Marais |
 
 ## Features
 
-- **Interactive Europe Map** — Explore 40+ European cities with color-coded viability markers
-- **ML Revenue Prediction** — Gradient Boosting model trained on geographical parameters
-- **15 Geo Parameters** — Population, GDP, foot traffic, tourism, competitor density, luxury retail proximity, transport, rent, demographics, e-commerce penetration, and more
+- **176+ European Cities** — Comprehensive coverage across 30+ countries
+- **Interactive Europe Map** — Color-coded viability markers with search and tier filters
+- **ML Revenue Prediction** — Gradient Boosting model trained on 15 geo parameters (85% accuracy)
+- **AI Chat Advisor** — LLM-powered assistant for revenue, competitors, seasonality, and expansion strategy
+- **Competitor Analysis** — Ray-Ban, Oakley, Persol, Gentle Monster, Hawkers, and 15+ sunglasses brands
+- **Seasonal Revenue Forecasting** — Monthly breakdown with tourist season and peak period analysis
+- **Google Maps Integration** — Live Meller store lookup, competitor POIs, and estimated store sizes
+- **15 Geo Parameters** — Population, GDP, foot traffic, tourism, competitor density, and more
 - **Viability Scoring** — 0–100 score with actionable recommendations
-- **Store Size Simulator** — Adjust store size (40–200 m²) and see revenue impact in real time
-- **Feature Importance** — Understand which factors drive revenue most
+- **Catchment & Street Analysis** — Drill into any city to compare districts and specific retail streets
+- **Social Intelligence** — Google reviews, Instagram buzz, and X/Twitter shopping signals with sentiment analysis
 
 ## Architecture
 
@@ -46,6 +64,9 @@ docker run -p 8000:8000 meller-geo
 1. Push this repo to GitHub
 2. Go to [Render Dashboard](https://dashboard.render.com) → **New** → **Blueprint**
 3. Connect the `MellerGeo` repository and deploy
+4. Set environment variables in Render:
+   - `OPENAI_API_KEY` — enables full LLM chat (optional, falls back to local advisor)
+   - `GOOGLE_MAPS_API_KEY` — enables live store/competitor lookup via Google Places (optional)
 
 The included `render.yaml` configures a Docker web service in the Frankfurt region with health checks on `/api/health`.
 
