@@ -98,6 +98,9 @@ class CompetitorAnalysis(BaseModel):
     nearest_competitors: list[CompetitorStore]
     market_assessment: str
     meller_opportunity_score: float
+    ai_verified: bool = False
+    verification_confidence: float | None = None
+    data_quality: dict = Field(default_factory=dict)
 
 
 class MonthlyRevenue(BaseModel):
@@ -132,6 +135,8 @@ class StoreLookupResult(BaseModel):
     meller_stores: list[PlaceResult]
     nearby_competitors: list[PlaceResult]
     google_maps_enabled: bool
+    ai_verified: bool = False
+    data_quality: dict = Field(default_factory=dict)
 
 
 class BatchPredictRequest(BaseModel):
@@ -197,6 +202,9 @@ class SocialIntelligenceReport(BaseModel):
     where_people_shop: list[str]
     data_sources: dict[str, bool]
     summary: str
+    ai_verified: bool = False
+    review_insights: list[str] = Field(default_factory=list)
+    data_quality: dict = Field(default_factory=dict)
 
 
 class CatchmentArea(BaseModel):

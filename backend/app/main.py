@@ -12,11 +12,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.ai_intelligence import (
+    apply_verified_competitors,
+    apply_verified_social,
+    apply_verified_stores,
+    build_chat_context,
+    build_verified_intelligence,
+)
 from app.chat_service import chat
 from app.catchment import analyze_city_catchments, analyze_city_streets
-from app.competitors import analyze_competitors
 from app.data_generator import get_city_features
-from app.google_maps import find_meller_stores, find_nearby_competitors, geocode_address
 from app.meller_stores import BRAND, get_all_stores, get_stores_for_city
 from app.predictor import RevenuePredictor
 from app.schemas import (
@@ -36,7 +41,6 @@ from app.schemas import (
     StoreLookupResult,
 )
 from app.seasonality import compute_monthly_revenue, get_market_insights
-from app.social_intelligence import analyze_social_intelligence
 
 app = FastAPI(
     title="Meller Geo Intelligence",
@@ -100,6 +104,7 @@ def health():
         "city_count": len(predictor.load_cities()),
         "openai_enabled": bool(os.getenv("OPENAI_API_KEY")),
         "google_maps_enabled": bool(os.getenv("GOOGLE_MAPS_API_KEY")),
+        "ai_verification_enabled": bool(os.getenv("OPENAI_API_KEY")),
     }
 
 
@@ -196,25 +201,19 @@ def get_city_streets(
 
 
 @app.get("/api/cities/{city_id}/competitors", response_model=CompetitorAnalysis)
-def get_competitors(city_id: str):
+async def get_competitors(city_id: str, store_size_sqm: float = 80):
     city = _get_city(city_id)
+    prediction = _predict_for_city(city, store_size_sqm)
     features = get_city_features(city["city"])
-    if not features:
-        raise HTTPException(404, "City features not found")
+    tourist_index = features["tourist_index"] if features else city.get("tourist_index", 30)
+    foot_traffic = features["foot_traffic_index"] if features else city.get("foot_traffic_index", 50)
 
-    result = analyze_competitors(
-        city=city["city"],
-        country=city["country"],
-        latitude=city["latitude"],
-        longitude=city["longitude"],
-        population=city["population"],
-        city_tier=city["city_tier"],
-        gdp_per_capita=city["gdp_per_capita"],
+    intel = await build_verified_intelligence(
+        city, store_size_sqm, prediction.model_dump(),
+        tourist_index=tourist_index, foot_traffic=foot_traffic,
     )
-    return CompetitorAnalysis(
-        nearest_competitors=result["nearest_competitors"],
-        **{k: v for k, v in result.items() if k != "nearest_competitors" and k != "all_competitors"},
-    )
+    result = apply_verified_competitors(intel["verified"], city)
+    return CompetitorAnalysis(**result)
 
 
 @app.get("/api/cities/{city_id}/seasonality", response_model=SeasonalityAnalysis)
@@ -242,16 +241,20 @@ def get_seasonality(city_id: str, store_size_sqm: float = 80):
 
 
 @app.get("/api/cities/{city_id}/stores", response_model=StoreLookupResult)
-async def lookup_stores(city_id: str):
+async def lookup_stores(city_id: str, store_size_sqm: float = 80):
     import os
     city = _get_city(city_id)
-    meller = await find_meller_stores(city["latitude"], city["longitude"], city=city["city"])
-    competitors = await find_nearby_competitors(city["latitude"], city["longitude"])
-    return StoreLookupResult(
-        meller_stores=meller,
-        nearby_competitors=competitors,
-        google_maps_enabled=bool(os.getenv("GOOGLE_MAPS_API_KEY")),
+    prediction = _predict_for_city(city, store_size_sqm)
+    features = get_city_features(city["city"])
+    tourist_index = features["tourist_index"] if features else city.get("tourist_index", 30)
+    foot_traffic = features["foot_traffic_index"] if features else city.get("foot_traffic_index", 50)
+
+    intel = await build_verified_intelligence(
+        city, store_size_sqm, prediction.model_dump(),
+        tourist_index=tourist_index, foot_traffic=foot_traffic,
     )
+    result = apply_verified_stores(intel, bool(os.getenv("GOOGLE_MAPS_API_KEY")))
+    return StoreLookupResult(**result)
 
 
 @app.get("/api/cities/{city_id}/social", response_model=SocialIntelligenceReport)
@@ -287,17 +290,14 @@ async def get_social_intelligence(
             foot_traffic = catchment.get("foot_traffic", foot_traffic)
             tourist_index = catchment.get("tourist", tourist_index)
 
-    result = await analyze_social_intelligence(
-        city=city["city"],
-        country=city["country"],
-        latitude=lat,
-        longitude=lon,
-        area_name=area_name,
-        tourist_index=tourist_index,
-        foot_traffic=foot_traffic,
-        catchment_id=catchment_id,
-        street_name=street_name,
+    prediction = _predict_for_city(city, 80)
+    intel = await build_verified_intelligence(
+        city, 80, prediction.model_dump(),
+        catchment_id=catchment_id, street_id=street_id,
+        area_name=area_name or street_name, lat=lat, lon=lon,
+        tourist_index=tourist_index, foot_traffic=foot_traffic,
     )
+    result = apply_verified_social(intel, city)
 
     return SocialIntelligenceReport(
         google=result["google"],
@@ -313,52 +313,27 @@ async def chat_endpoint(request: ChatRequest):
 
     if request.city_id:
         city = _get_city(request.city_id)
-        context["selected_city"] = city
-
-        try:
-            prediction = _predict_for_city(city, request.store_size_sqm)
-            context["prediction"] = prediction.model_dump()
-        except HTTPException:
-            pass
-
+        prediction = _predict_for_city(city, request.store_size_sqm)
         features = get_city_features(city["city"], request.store_size_sqm)
-        if features:
-            comp = analyze_competitors(
-                city=city["city"], country=city["country"],
-                latitude=city["latitude"], longitude=city["longitude"],
-                population=city["population"], city_tier=city["city_tier"],
-                gdp_per_capita=city["gdp_per_capita"],
-            )
-            context["competitors"] = {k: v for k, v in comp.items() if k != "all_competitors"}
+        tourist_index = features["tourist_index"] if features else city.get("tourist_index", 30)
+        foot_traffic = features["foot_traffic_index"] if features else city.get("foot_traffic_index", 50)
 
-            tourist_index = features["tourist_index"]
-            monthly = compute_monthly_revenue(
-                context.get("prediction", {}).get("predicted_annual_revenue_eur", 250000),
-                city["city"], tourist_index,
-            )
-            context["seasonality"] = {"monthly": monthly}
-            context["market_insights"] = get_market_insights(
-                city["city"], city["country"], tourist_index, city["gdp_per_capita"]
-            )
-
-        stores = await find_meller_stores(city["latitude"], city["longitude"], city=city["city"])
-        context["meller_stores"] = stores
-
-        social = await analyze_social_intelligence(
-            city=city["city"],
-            country=city["country"],
-            latitude=city["latitude"],
-            longitude=city["longitude"],
-            tourist_index=features.get("tourist_index", 30) if features else 30,
-            foot_traffic=features.get("foot_traffic_index", 50) if features else 50,
+        monthly = compute_monthly_revenue(
+            prediction.predicted_annual_revenue_eur,
+            city["city"], tourist_index,
         )
-        context["social_intelligence"] = {
-            "sentiment": social["overall_sentiment_label"],
-            "shopping_intent": social["shopping_intent_score"],
-            "where_people_shop": social["where_people_shop"],
-            "google_rating": social["google"].get("average_rating"),
-            "instagram_mentions": social["instagram"].get("mention_volume_monthly"),
-        }
+        market_insights = get_market_insights(
+            city["city"], city["country"], tourist_index, city["gdp_per_capita"]
+        )
+
+        intel = await build_verified_intelligence(
+            city, request.store_size_sqm, prediction.model_dump(),
+            tourist_index=tourist_index, foot_traffic=foot_traffic,
+        )
+        context = build_chat_context(
+            intel, city, prediction.model_dump(),
+            {"monthly": monthly}, market_insights,
+        )
 
     return await chat(request, context)
 

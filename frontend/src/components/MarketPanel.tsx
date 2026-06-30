@@ -33,7 +33,12 @@ export default function MarketPanel({ competitors, seasonality, stores, loading 
     <div className="market-panel">
       {competitors && (
         <section className="market-section">
-          <h3>Competitor Landscape</h3>
+          <h3>
+            Competitor Landscape
+            {competitors.ai_verified && (
+              <span className="ai-badge" title="Cross-checked by OpenAI against Google Maps">AI Verified</span>
+            )}
+          </h3>
           <div className="market-stats">
             <div className="market-stat">
               <span className="market-stat-value">{competitors.total_competitors}</span>
@@ -49,6 +54,11 @@ export default function MarketPanel({ competitors, seasonality, stores, loading 
             </div>
           </div>
           <p className="market-assessment">{competitors.market_assessment}</p>
+          {competitors.verification_confidence != null && competitors.ai_verified && (
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
+              Verification confidence: {competitors.verification_confidence}%
+            </p>
+          )}
           <div className="brand-tags">
             {competitors.brands_present.map((b) => (
               <span key={b} className={`brand-tag ${b === 'Meller' ? 'meller' : ''}`}>{b}</span>

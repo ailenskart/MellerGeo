@@ -32,7 +32,12 @@ export default function SocialPanel({ report, loading }: Props) {
   return (
     <div className="social-panel">
       <section className="sidebar-section">
-        <h2>Social Intelligence</h2>
+        <h2>
+          Social Intelligence
+          {report.ai_verified && (
+            <span className="ai-badge" title="Review sentiment verified by OpenAI">AI Verified</span>
+          )}
+        </h2>
         <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
           {report.location}, {report.city}
         </p>
@@ -57,6 +62,19 @@ export default function SocialPanel({ report, loading }: Props) {
           <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
             Live data: {liveSources}
           </p>
+        )}
+
+        {report.review_insights && report.review_insights.length > 0 && (
+          <div style={{ marginTop: '1rem' }}>
+            <h3 style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem' }}>
+              AI Review Insights
+            </h3>
+            <ul style={{ fontSize: '0.85rem', paddingLeft: '1.2rem', color: 'var(--text-secondary)' }}>
+              {report.review_insights.map((insight, i) => (
+                <li key={i} style={{ marginBottom: '0.35rem' }}>{insight}</li>
+              ))}
+            </ul>
+          </div>
         )}
       </section>
 

@@ -89,6 +89,9 @@ export interface CompetitorAnalysis {
   nearest_competitors: CompetitorStore[];
   market_assessment: string;
   meller_opportunity_score: number;
+  ai_verified?: boolean;
+  verification_confidence?: number | null;
+  data_quality?: Record<string, unknown>;
 }
 
 export interface MonthlyRevenue {
@@ -121,6 +124,8 @@ export interface StoreLookupResult {
   meller_stores: PlaceResult[];
   nearby_competitors: PlaceResult[];
   google_maps_enabled: boolean;
+  ai_verified?: boolean;
+  data_quality?: Record<string, unknown>;
 }
 
 export interface CityDetailAnalysis {
@@ -233,6 +238,9 @@ export interface SocialIntelligenceReport {
   where_people_shop: string[];
   data_sources: Record<string, boolean>;
   summary: string;
+  ai_verified?: boolean;
+  review_insights?: string[];
+  data_quality?: Record<string, unknown>;
 }
 
 export interface HealthStatus {

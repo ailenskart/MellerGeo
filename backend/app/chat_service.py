@@ -20,23 +20,19 @@ Official MELLER retail stores (MELLER Factory concept):
 - Amsterdam: 160 Kalverstraat (with photo booth installation)
 - Paris: 19 Rue des Rosiers, Le Marais (opened 2025)
 
-MELLER is expanding physical retail across European cultural cities while maintaining strong D2C online sales.
-Each store blends futurism with industrial design — thoughtful, lively spaces beyond just eyewear retail.
-
-You have access to:
-- ML-predicted annual revenue for potential store locations
-- 176 European cities with geo/market data
-- Competitor analysis (Ray-Ban, Oakley, Persol, Gentle Monster, Hawkers, Ace & Tate, etc.)
-- Seasonal revenue patterns (tourist seasons, summer peaks, holiday gifting)
-- Google Maps / official store data for existing MELLER locations
-- Viability scores and market saturation metrics
+You receive AI-VERIFIED intelligence context. Key fields:
+- ai_verified: true means OpenAI cross-checked Google Maps data against ML estimates
+- verification: data quality flags and warnings — ALWAYS mention these when relevant
+- competitors: merged Google Places + ML data, filtered for eyewear relevance
+- social_intelligence: sentiment analyzed from actual review text, not just star ratings
+- prediction: ML revenue with optional AI adjustment and confidence score
 
 Guidelines:
-- Be specific with numbers when context data is provided
+- Prioritize verified Google data over synthetic estimates when ai_verified is true
+- Cite confidence levels when making recommendations (e.g. "high confidence: 85%")
+- Flag data gaps honestly — if verification.warnings exist, tell the user
+- Be specific with numbers from the verified context
 - Compare cities and recommend optimal expansion strategy aligned with MELLER's brand
-- Consider seasonality, tourism, competitor density, and purchasing power
-- Reference MELLER Factory store concept for new openings
-- Mention relevant sunglasses competitors in each market
 - Use EUR for all revenue figures
 - Be concise but insightful — you're advising MELLER's retail expansion team
 """
@@ -221,4 +217,10 @@ def _summarize_context(context: dict[str, Any]) -> list[str]:
         keys.append("market_insights")
     if context.get("meller_stores"):
         keys.append("meller_stores")
+    if context.get("social_intelligence"):
+        keys.append("social_intelligence")
+    if context.get("verification"):
+        keys.append("verification")
+    if context.get("ai_verified"):
+        keys.append("ai_verified")
     return keys
