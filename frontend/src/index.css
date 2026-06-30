@@ -411,6 +411,34 @@ body {
   color: var(--meller-white);
 }
 
+.tab-badge {
+  display: inline-block;
+  margin-left: 0.35rem;
+  color: var(--meller-orange);
+  font-size: 0.55rem;
+  vertical-align: middle;
+}
+
+.tab-hint {
+  margin: 0.75rem 1rem 0;
+  padding: 0.65rem 0.85rem;
+  background: var(--meller-orange-light);
+  border-left: 3px solid var(--meller-orange);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.tab-hint button {
+  background: none;
+  border: none;
+  color: var(--meller-orange);
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  font-size: inherit;
+  text-decoration: underline;
+}
+
 /* Chat */
 .chat-panel {
   display: flex;

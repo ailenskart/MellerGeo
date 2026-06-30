@@ -9,6 +9,7 @@ interface Props {
   selectedStreet: StreetLocation | null;
   onSelectCatchment: (c: CatchmentArea | null) => void;
   onSelectStreet: (s: StreetLocation | null) => void;
+  onOpenSocial?: () => void;
   loading: boolean;
 }
 
@@ -26,6 +27,7 @@ export default function LocationPanel({
   selectedStreet,
   onSelectCatchment,
   onSelectStreet,
+  onOpenSocial,
   loading,
 }: Props) {
   if (loading) {
@@ -57,6 +59,13 @@ export default function LocationPanel({
           </>
         )}
       </div>
+
+      {onOpenSocial && (
+        <p className="tab-hint">
+          Google reviews, Instagram buzz, and shopping signals are in the{' '}
+          <button type="button" onClick={onOpenSocial}>Social tab</button>.
+        </p>
+      )}
 
       {selectedStreet ? (
         <section className="sidebar-section">
