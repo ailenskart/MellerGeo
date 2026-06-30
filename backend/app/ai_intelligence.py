@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 import math
 import time
 from typing import Any
 
 from app.competitors import analyze_competitors
-from app.google_maps import GOOGLE_MAPS_API_KEY, find_meller_stores, find_nearby_competitors
-from app.meller_stores import get_all_stores, get_stores_for_city
+from app.google_maps import GOOGLE_MAPS_API_KEY, find_meller_stores, find_nearby_competitors, get_google_api_status
+from app.meller_stores import get_stores_for_city
 from app.openai_client import OPENAI_API_KEY, call_openai_json
 from app.social_intelligence import analyze_social_intelligence
 
@@ -82,6 +83,7 @@ Return JSON with this exact structure:
 }"""
 
 _cache: dict[str, tuple[float, dict[str, Any]]] = {}
+_inflight: dict[str, asyncio.Task] = {}
 CACHE_TTL_SECONDS = 600
 
 
@@ -151,6 +153,8 @@ def _prepare_raw_payload(
         },
         "data_flags": {
             "google_maps_configured": bool(GOOGLE_MAPS_API_KEY),
+            "google_maps_live": get_google_api_status().get("live", False),
+            "google_api_error": get_google_api_status().get("error"),
             "openai_configured": bool(OPENAI_API_KEY),
         },
     }
@@ -207,8 +211,15 @@ def _rule_based_fallback(payload: dict[str, Any]) -> dict[str, Any]:
 
     social = payload["social_raw"]
     warnings = []
+    gstatus = get_google_api_status()
     if not payload["data_flags"]["google_maps_configured"]:
-        warnings.append("Google Maps API not configured — using estimated data")
+        warnings.append("Google Maps API key not set — using estimated store and competitor data")
+    elif not gstatus.get("live"):
+        err = gstatus.get("error", "API not enabled")
+        warnings.append(
+            f"Google Maps live data unavailable ({err}). "
+            "Enable Places API (New) in Google Cloud Console to get real store data."
+        )
     if not payload["data_flags"]["openai_configured"]:
         warnings.append("OpenAI not configured — using rule-based merge only")
 
@@ -263,6 +274,7 @@ async def build_verified_intelligence(
     lon: float | None = None,
     tourist_index: float = 50,
     foot_traffic: float = 50,
+    skip_ai: bool = False,
 ) -> dict[str, Any]:
     """Gather all sources, verify via OpenAI, return unified intelligence."""
     key = _cache_key(city["id"], store_size, catchment_id, street_id)
@@ -270,6 +282,40 @@ async def build_verified_intelligence(
     if cached and time.time() - cached[0] < CACHE_TTL_SECONDS:
         return cached[1]
 
+    if key in _inflight:
+        return await _inflight[key]
+
+    task = asyncio.create_task(
+        _build_verified_intelligence_inner(
+            city, store_size, prediction,
+            catchment_id=catchment_id, street_id=street_id,
+            area_name=area_name, lat=lat, lon=lon,
+            tourist_index=tourist_index, foot_traffic=foot_traffic,
+            skip_ai=skip_ai, cache_key=key,
+        )
+    )
+    _inflight[key] = task
+    try:
+        return await task
+    finally:
+        _inflight.pop(key, None)
+
+
+async def _build_verified_intelligence_inner(
+    city: dict,
+    store_size: float,
+    prediction: dict,
+    *,
+    catchment_id: str | None,
+    street_id: str | None,
+    area_name: str | None,
+    lat: float | None,
+    lon: float | None,
+    tourist_index: float,
+    foot_traffic: float,
+    skip_ai: bool,
+    cache_key: str,
+) -> dict[str, Any]:
     use_lat = lat or city["latitude"]
     use_lon = lon or city["longitude"]
 
@@ -308,13 +354,15 @@ async def build_verified_intelligence(
         social_raw=social_raw,
     )
 
-    verified = await call_openai_json(VERIFICATION_SYSTEM_PROMPT, payload)
+    verified = None
+    if not skip_ai and OPENAI_API_KEY:
+        verified = await call_openai_json(VERIFICATION_SYSTEM_PROMPT, payload)
     if not verified:
         verified = _rule_based_fallback(payload)
     else:
         verified.setdefault("data_quality", {})
         verified["data_quality"]["openai_verified"] = True
-        verified["data_quality"]["google_live"] = bool(GOOGLE_MAPS_API_KEY)
+        verified["data_quality"]["google_live"] = get_google_api_status().get("live", False)
 
     result = {
         "verified": verified,
@@ -326,8 +374,39 @@ async def build_verified_intelligence(
         },
     }
 
-    _cache[key] = (time.time(), result)
+    _cache[cache_key] = (time.time(), result)
     return result
+
+
+async def build_city_intelligence_bundle(
+    city: dict,
+    store_size: float,
+    prediction: dict,
+    seasonality: dict,
+    *,
+    catchment_id: str | None = None,
+    street_id: str | None = None,
+    area_name: str | None = None,
+    lat: float | None = None,
+    lon: float | None = None,
+    tourist_index: float = 50,
+    foot_traffic: float = 50,
+) -> dict[str, Any]:
+    """Single call that returns competitors, stores, social — one AI verification pass."""
+    intel = await build_verified_intelligence(
+        city, store_size, prediction,
+        catchment_id=catchment_id, street_id=street_id,
+        area_name=area_name, lat=lat, lon=lon,
+        tourist_index=tourist_index, foot_traffic=foot_traffic,
+    )
+    import os
+    return {
+        "competitors": apply_verified_competitors(intel["verified"], city),
+        "stores": apply_verified_stores(intel, bool(os.getenv("GOOGLE_MAPS_API_KEY"))),
+        "social": apply_verified_social(intel, city),
+        "seasonality": seasonality,
+        "google_status": get_google_api_status(),
+    }
 
 
 def apply_verified_competitors(verified: dict[str, Any], city: dict) -> dict[str, Any]:

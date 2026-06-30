@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import DataStatusBanner from './components/DataStatusBanner';
 import ChatPanel from './components/ChatPanel';
 import CityDetailMap from './components/CityDetailMap';
 import EuropeMap from './components/EuropeMap';
@@ -8,13 +9,10 @@ import SocialPanel from './components/SocialPanel';
 import Sidebar from './components/Sidebar';
 import {
   batchPredict,
+  fetchCityIntelligence,
   fetchCityDetail,
-  fetchCompetitors,
   fetchHealth,
   fetchMetrics,
-  fetchSeasonality,
-  fetchSocialIntelligence,
-  fetchStores,
   predictCity,
   type CatchmentArea,
   type CityDetailAnalysis,
@@ -51,6 +49,7 @@ export default function App() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [marketLoading, setMarketLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState(false);
+  const [dataWarning, setDataWarning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('analysis');
   const [searchQuery, setSearchQuery] = useState('');
@@ -114,42 +113,56 @@ export default function App() {
     }
   }, []);
 
-  const loadSocialData = useCallback(async (
+  const loadIntelligence = useCallback(async (
     cityId: string,
-    catchmentId?: string | null,
-    streetId?: string | null,
+    size: number,
+    opts?: { catchmentId?: string; streetId?: string },
   ) => {
+    setMarketLoading(true);
     setSocialLoading(true);
+    setDataWarning(null);
     try {
-      const report = await fetchSocialIntelligence(cityId, {
-        catchmentId: catchmentId ?? undefined,
-        streetId: streetId ?? undefined,
-      });
-      setSocialReport(report);
-    } catch {
+      const bundle = await fetchCityIntelligence(cityId, size, opts);
+      setCompetitors(bundle.competitors);
+      setSeasonality(bundle.seasonality);
+      setStores(bundle.stores);
+      setSocialReport(bundle.social);
+
+      const warnings = bundle.competitors.data_quality?.warnings as string[] | undefined;
+      const googleErr = bundle.google_status?.error as string | undefined;
+      if (warnings?.length) {
+        setDataWarning(warnings[0]);
+      } else if (googleErr && !bundle.google_status?.live) {
+        setDataWarning(`Google Maps: ${googleErr}`);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to load intelligence data';
+      setDataWarning(msg);
+      setCompetitors(null);
+      setSeasonality(null);
+      setStores(null);
       setSocialReport(null);
     } finally {
+      setMarketLoading(false);
       setSocialLoading(false);
     }
   }, []);
 
+  const loadSocialData = useCallback(async (
+    cityId: string,
+    catchmentId?: string | null,
+    streetId?: string | null,
+    size: number = storeSize,
+  ) => {
+    await loadIntelligence(cityId, size, {
+      catchmentId: catchmentId ?? undefined,
+      streetId: streetId ?? undefined,
+    });
+  }, [loadIntelligence, storeSize]);
+
   const loadMarketData = useCallback(async (cityId: string, size: number) => {
-    setMarketLoading(true);
-    try {
-      const [comp, seas, storeData] = await Promise.all([
-        fetchCompetitors(cityId),
-        fetchSeasonality(cityId, size),
-        fetchStores(cityId),
-      ]);
-      setCompetitors(comp);
-      setSeasonality(seas);
-      setStores(storeData);
-    } catch {
-      /* partial failure ok */
-    } finally {
-      setMarketLoading(false);
-    }
-  }, []);
+    await loadIntelligence(cityId, size);
+  }, [loadIntelligence]);
 
   const analyzeCity = useCallback(async (city: CityLocation, size: number) => {
     setLoading(true);
@@ -161,7 +174,6 @@ export default function App() {
       await Promise.all([
         loadMarketData(city.id, size),
         loadCityDetail(city.id, size),
-        loadSocialData(city.id),
       ]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Analysis failed');
@@ -199,6 +211,7 @@ export default function App() {
     setSelectedCatchment(null);
     setSelectedStreet(null);
     setSocialReport(null);
+    setDataWarning(null);
     setPrediction(null);
     setActiveTab('analysis');
   };
@@ -275,6 +288,8 @@ export default function App() {
           )}
         </div>
       </header>
+
+      <DataStatusBanner health={health} dataWarning={dataWarning} />
 
       <main className="main main-3col">
         <div className="map-container">
@@ -364,6 +379,7 @@ export default function App() {
               seasonality={seasonality}
               stores={stores}
               loading={marketLoading}
+              dataWarning={dataWarning}
             />
           )}
           {activeTab === 'chat' && (

@@ -14,17 +14,18 @@ interface Props {
   seasonality: SeasonalityAnalysis | null;
   stores: StoreLookupResult | null;
   loading: boolean;
+  dataWarning?: string | null;
 }
 
-export default function MarketPanel({ competitors, seasonality, stores, loading }: Props) {
+export default function MarketPanel({ competitors, seasonality, stores, loading, dataWarning }: Props) {
   if (loading) {
-    return <div className="loading">Loading market intelligence...</div>;
+    return <div className="loading">Loading and verifying market intelligence…</div>;
   }
 
   if (!competitors && !seasonality) {
     return (
       <div className="empty-state" style={{ padding: '2rem 1rem' }}>
-        <p>Select a city to see competitor analysis, seasonality, and store data.</p>
+        <p>{dataWarning || 'Select a city to see competitor analysis, seasonality, and store data.'}</p>
       </div>
     );
   }

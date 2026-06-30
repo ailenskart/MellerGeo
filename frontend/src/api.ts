@@ -249,6 +249,17 @@ export interface HealthStatus {
   city_count: number;
   openai_enabled: boolean;
   google_maps_enabled: boolean;
+  google_maps_live?: boolean;
+  google_api_error?: string | null;
+  ai_verification_enabled?: boolean;
+}
+
+export interface CityIntelligenceBundle {
+  competitors: CompetitorAnalysis;
+  stores: StoreLookupResult;
+  social: SocialIntelligenceReport;
+  seasonality: SeasonalityAnalysis;
+  google_status?: Record<string, unknown>;
 }
 
 const API_BASE = '/api';
@@ -291,8 +302,24 @@ export async function predictCity(cityId: string, storeSize: number): Promise<Re
   return res.json();
 }
 
-export async function fetchCompetitors(cityId: string): Promise<CompetitorAnalysis> {
-  const res = await fetch(`${API_BASE}/cities/${cityId}/competitors`);
+export async function fetchCityIntelligence(
+  cityId: string,
+  storeSize: number = 80,
+  params?: { catchmentId?: string; streetId?: string },
+): Promise<CityIntelligenceBundle> {
+  const qs = new URLSearchParams({ store_size_sqm: String(storeSize) });
+  if (params?.catchmentId) qs.set('catchment_id', params.catchmentId);
+  if (params?.streetId) qs.set('street_id', params.streetId);
+  const res = await fetch(`${API_BASE}/cities/${cityId}/intelligence?${qs}`);
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(err || 'Intelligence fetch failed');
+  }
+  return res.json();
+}
+
+export async function fetchCompetitors(cityId: string, storeSize: number = 80): Promise<CompetitorAnalysis> {
+  const res = await fetch(`${API_BASE}/cities/${cityId}/competitors?store_size_sqm=${storeSize}`);
   if (!res.ok) throw new Error('Competitor analysis failed');
   return res.json();
 }
@@ -303,8 +330,8 @@ export async function fetchSeasonality(cityId: string, storeSize: number): Promi
   return res.json();
 }
 
-export async function fetchStores(cityId: string): Promise<StoreLookupResult> {
-  const res = await fetch(`${API_BASE}/cities/${cityId}/stores`);
+export async function fetchStores(cityId: string, storeSize: number = 80): Promise<StoreLookupResult> {
+  const res = await fetch(`${API_BASE}/cities/${cityId}/stores?store_size_sqm=${storeSize}`);
   if (!res.ok) throw new Error('Store lookup failed');
   return res.json();
 }

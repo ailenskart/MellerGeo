@@ -13,7 +13,7 @@ function sentimentClass(score: number): string {
 
 export default function SocialPanel({ report, loading }: Props) {
   if (loading) {
-    return <div className="loading">Loading social intelligence...</div>;
+    return <div className="loading">Loading and verifying social intelligence…</div>;
   }
 
   if (!report) {

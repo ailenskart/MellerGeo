@@ -258,3 +258,11 @@ class CityDetailAnalysis(BaseModel):
     streets: list[StreetLocation]
     top_catchment: CatchmentArea | None = None
     top_street: StreetLocation | None = None
+
+
+class CityIntelligenceBundle(BaseModel):
+    competitors: CompetitorAnalysis
+    stores: StoreLookupResult
+    social: SocialIntelligenceReport
+    seasonality: SeasonalityAnalysis
+    google_status: dict = Field(default_factory=dict)

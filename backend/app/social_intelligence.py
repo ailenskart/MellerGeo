@@ -10,7 +10,7 @@ from typing import Any
 
 import httpx
 
-from app.google_maps import GOOGLE_MAPS_API_KEY, find_nearby_competitors, search_places
+from app.google_maps import GOOGLE_MAPS_API_KEY, find_nearby_competitors, get_google_api_status, get_place_details, search_places
 
 INSTAGRAM_ACCESS_TOKEN = os.getenv("INSTAGRAM_ACCESS_TOKEN", "")
 TWITTER_BEARER_TOKEN = os.getenv("TWITTER_BEARER_TOKEN", "")
@@ -114,7 +114,7 @@ async def analyze_social_intelligence(
         "top_negative_themes": overall_sentiment["themes_negative"],
         "where_people_shop": [d["name"] for d in shopping_destinations[:5]],
         "data_sources": {
-            "google_live": bool(GOOGLE_MAPS_API_KEY),
+            "google_live": get_google_api_status().get("live", False),
             "instagram_live": bool(INSTAGRAM_ACCESS_TOKEN),
             "twitter_live": bool(TWITTER_BEARER_TOKEN),
         },
@@ -131,7 +131,7 @@ async def _fetch_google_reviews(
     if GOOGLE_MAPS_API_KEY:
         raw_places = await search_places(f"shopping {area}", lat, lon, radius_m=1500)
         for place in raw_places[:8]:
-            details = await _get_place_reviews(place.get("place_id", ""))
+            details = await _get_place_reviews(place.get("place_id", ""), place)
             if details:
                 places.append(details)
                 reviews.extend(details.get("reviews", []))
@@ -160,40 +160,28 @@ async def _fetch_google_reviews(
     }
 
 
-async def _get_place_reviews(place_id: str) -> dict | None:
-    if not place_id or not GOOGLE_MAPS_API_KEY:
+async def _get_place_reviews(place_id: str, place_summary: dict | None = None) -> dict | None:
+    details = await get_place_details(place_id)
+    if not details and place_summary:
+        return {
+            "name": place_summary.get("name", ""),
+            "rating": place_summary.get("rating"),
+            "user_ratings_total": place_summary.get("user_ratings_total", 0),
+            "reviews": [],
+        }
+    if not details:
         return None
 
-    async with httpx.AsyncClient(timeout=15) as client:
-        resp = await client.get(
-            "https://maps.googleapis.com/maps/api/place/details/json",
-            params={
-                "place_id": place_id,
-                "fields": "name,rating,user_ratings_total,reviews,types",
-                "key": GOOGLE_MAPS_API_KEY,
-            },
-        )
-        data = resp.json()
-        if data.get("status") != "OK":
-            return None
-
-        result = data.get("result", {})
+    formatted_reviews = details.get("reviews", [])
+    if not formatted_reviews and details.get("rating"):
         formatted_reviews = []
-        for r in result.get("reviews", [])[:5]:
-            formatted_reviews.append({
-                "author": r.get("author_name", "Anonymous"),
-                "rating": r.get("rating", 0),
-                "text": r.get("text", ""),
-                "time": r.get("relative_time_description", ""),
-                "source": "google",
-            })
 
-        return {
-            "name": result.get("name", ""),
-            "rating": result.get("rating"),
-            "user_ratings_total": result.get("user_ratings_total", 0),
-            "reviews": formatted_reviews,
-        }
+    return {
+        "name": details.get("name", ""),
+        "rating": details.get("rating"),
+        "user_ratings_total": details.get("user_ratings_total", 0),
+        "reviews": formatted_reviews[:5],
+    }
 
 
 def _mock_google_reviews(area: str, lat: float, lon: float, seed: str) -> tuple[list[dict], list[dict]]:
