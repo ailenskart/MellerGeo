@@ -10,7 +10,7 @@
     "foot_traffic_index": 96.3,
     "tourist_index": 12.2,
     "city_tier": 1,
-    "has_existing_store": true,
+    "has_existing_store": false,
     "actual_revenue_eur": null
   },
   {
@@ -444,7 +444,7 @@
     "foot_traffic_index": 76.6,
     "tourist_index": 5.9,
     "city_tier": 1,
-    "has_existing_store": true,
+    "has_existing_store": false,
     "actual_revenue_eur": null
   },
   {
@@ -458,7 +458,7 @@
     "foot_traffic_index": 96.7,
     "tourist_index": 10.7,
     "city_tier": 1,
-    "has_existing_store": true,
+    "has_existing_store": false,
     "actual_revenue_eur": null
   },
   {
@@ -682,7 +682,7 @@
     "foot_traffic_index": 85.0,
     "tourist_index": 30.9,
     "city_tier": 1,
-    "has_existing_store": true,
+    "has_existing_store": false,
     "actual_revenue_eur": null
   },
   {
@@ -696,7 +696,7 @@
     "foot_traffic_index": 95.4,
     "tourist_index": 77.5,
     "city_tier": 1,
-    "has_existing_store": true,
+    "has_existing_store": false,
     "actual_revenue_eur": null
   },
   {
@@ -892,7 +892,7 @@
     "foot_traffic_index": 100,
     "tourist_index": 5.7,
     "city_tier": 1,
-    "has_existing_store": true,
+    "has_existing_store": false,
     "actual_revenue_eur": null
   },
   {
@@ -1270,7 +1270,7 @@
     "foot_traffic_index": 82.1,
     "tourist_index": 76.8,
     "city_tier": 1,
-    "has_existing_store": true,
+    "has_existing_store": false,
     "actual_revenue_eur": null
   },
   {
@@ -1340,7 +1340,7 @@
     "foot_traffic_index": 100,
     "tourist_index": 89.5,
     "city_tier": 1,
-    "has_existing_store": true,
+    "has_existing_store": false,
     "actual_revenue_eur": null
   },
   {
@@ -1494,7 +1494,7 @@
     "foot_traffic_index": 100,
     "tourist_index": 33.1,
     "city_tier": 1,
-    "has_existing_store": true,
+    "has_existing_store": false,
     "actual_revenue_eur": null
   },
   {
@@ -1536,7 +1536,7 @@
     "foot_traffic_index": 100,
     "tourist_index": 36.6,
     "city_tier": 1,
-    "has_existing_store": true,
+    "has_existing_store": false,
     "actual_revenue_eur": null
   },
   {

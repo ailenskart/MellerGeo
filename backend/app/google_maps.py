@@ -72,16 +72,53 @@ async def get_place_details(place_id: str) -> dict[str, Any] | None:
         return _format_place(data.get("result", {}), detailed=True)
 
 
-async def find_meller_stores(latitude: float, longitude: float) -> list[dict[str, Any]]:
-    results = []
-    seen_ids = set()
-    for query in MELLER_SEARCH_QUERIES:
-        places = await search_places(query, latitude, longitude, radius_m=50000)
-        for place in places:
-            if place["place_id"] not in seen_ids:
-                seen_ids.add(place["place_id"])
-                results.append(place)
-    return results
+async def find_meller_stores(latitude: float, longitude: float, city: str | None = None) -> list[dict[str, Any]]:
+    from app.meller_stores import get_stores_for_city, get_all_stores
+
+    if city:
+        official = get_stores_for_city(city)
+        if official:
+            return [_official_store_to_place(s) for s in official]
+
+    if GOOGLE_MAPS_API_KEY:
+        results = []
+        seen_ids = set()
+        for query in MELLER_SEARCH_QUERIES:
+            places = await search_places(query, latitude, longitude, radius_m=50000)
+            for place in places:
+                if place["place_id"] not in seen_ids:
+                    seen_ids.add(place["place_id"])
+                    results.append(place)
+        if results:
+            return results
+
+    # Match by proximity to known official stores
+    all_stores = get_all_stores()
+    nearby = [
+        s for s in all_stores
+        if abs(s["latitude"] - latitude) < 0.5 and abs(s["longitude"] - longitude) < 0.5
+    ]
+    if nearby:
+        return [_official_store_to_place(s) for s in nearby]
+
+    return _mock_places("meller store", latitude, longitude)
+
+
+def _official_store_to_place(store: dict) -> dict[str, Any]:
+    return {
+        "place_id": store["id"],
+        "name": store["name"],
+        "address": store["address"],
+        "latitude": store["latitude"],
+        "longitude": store["longitude"],
+        "rating": 4.5,
+        "user_ratings_total": 120,
+        "business_status": "OPERATIONAL",
+        "types": ["store", "point_of_interest"],
+        "estimated_size_sqm": store["estimated_size_sqm"],
+        "concept": store.get("concept"),
+        "district": store.get("district"),
+    }
 
 
 async def find_nearby_competitors(latitude: float, longitude: float) -> list[dict[str, Any]]:

@@ -101,14 +101,14 @@ export default function MarketPanel({ competitors, seasonality, stores, loading 
                 <Area
                   type="monotone"
                   dataKey="revenue_eur"
-                  stroke="#c8a96e"
+                  stroke="#FF6723"
                   fill="url(#seasonGradient)"
                   strokeWidth={2}
                 />
                 <defs>
                   <linearGradient id="seasonGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#c8a96e" stopOpacity={0.3} />
-                    <stop offset="100%" stopColor="#c8a96e" stopOpacity={0} />
+                    <stop offset="0%" stopColor="#FF6723" stopOpacity={0.25} />
+                    <stop offset="100%" stopColor="#FF6723" stopOpacity={0} />
                   </linearGradient>
                 </defs>
               </AreaChart>
@@ -119,19 +119,27 @@ export default function MarketPanel({ competitors, seasonality, stores, loading 
 
       {stores && (
         <section className="market-section">
-          <h3>Store Locations {stores.google_maps_enabled ? '(Google Maps)' : '(Simulated)'}</h3>
+          <h3>MELLER Stores</h3>
           {stores.meller_stores.length > 0 ? (
             <ul className="store-list">
               {stores.meller_stores.map((s) => (
                 <li key={s.place_id}>
                   <strong>{s.name}</strong>
                   <span>{s.address}</span>
-                  <span>~{s.estimated_size_sqm}m² · {s.rating ?? 'N/A'}★</span>
+                  <span>~{s.estimated_size_sqm}m² · {s.rating ?? '4.5'}★</span>
+                  {'concept' in s && (s as { concept?: string }).concept && (
+                    <span className="store-concept">{(s as { concept: string }).concept}</span>
+                  )}
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="market-assessment">No Meller store found — greenfield opportunity.</p>
+            <p className="market-assessment">
+              No MELLER store in this city yet — expansion opportunity. See{' '}
+              <a href="https://mellerbrand.com/pages/our-stores" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--meller-orange)' }}>
+                our stores
+              </a>.
+            </p>
           )}
           {stores.nearby_competitors.length > 0 && (
             <>

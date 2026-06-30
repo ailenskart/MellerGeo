@@ -20,7 +20,7 @@ export default function ChatPanel({ selectedCity, storeSize }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
-      content: 'Hi! I\'m your Meller Geo Intelligence advisor. Select a city on the map, then ask me about revenue projections, competitors, seasonality, or store locations.',
+      content: 'Welcome to MELLER Geo Intelligence. I\'m your expansion advisor — ask me about revenue projections, sunglasses competitors, tourist seasons, or our MELLER Factory store locations. Select a city on the map to get started.',
     },
   ]);
   const [input, setInput] = useState('');

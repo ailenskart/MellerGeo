@@ -1,8 +1,21 @@
-# Meller Geo Intelligence
+# MELLER Geo Intelligence
 
-AI-powered geographical intelligence platform for **Meller** eyewear store expansion across Europe. The tool learns from 15+ geographical and market parameters to predict average annual revenue for potential store locations.
+Internal expansion intelligence platform for **[MELLER](https://mellerbrand.com/)** — the Barcelona-born sunglasses and eyewear brand trusted by 3M+ customers.
 
-![Meller Geo Intelligence](https://img.shields.io/badge/Meller-Geo%20Intelligence-c8a96e)
+Built to help MELLER plan **MELLER Factory** store openings across Europe, learning from geographical parameters to predict average annual revenue.
+
+![MELLER](https://img.shields.io/badge/MELLER-Geo%20Intelligence-FF6723)
+
+## Official MELLER Stores
+
+Per [mellerbrand.com/pages/our-stores](https://mellerbrand.com/pages/our-stores):
+
+| City | Address | Concept |
+|------|---------|---------|
+| Barcelona | Calle Portaferrissa 18 | MELLER Factory flagship |
+| Barcelona | Carrer de l'Argenteria 63 | MELLER Factory — Born |
+| Amsterdam | 160 Kalverstraat | MELLER Factory + photo booth |
+| Paris | 19 Rue des Rosiers | MELLER Factory — Le Marais |
 
 ## Features
 

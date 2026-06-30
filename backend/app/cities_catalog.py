@@ -6,6 +6,8 @@ import hashlib
 import json
 from pathlib import Path
 
+from app.meller_stores import MELLER_STORE_CITIES
+
 # Country defaults: (gdp_per_capita_eur, tier_1_cities, tier_2_cities, tier_3_cities)
 COUNTRY_CITIES: dict[str, dict] = {
     "Spain": {
@@ -362,11 +364,6 @@ TOURIST_CITIES = {
     "Santorini", "Mykonos", "Dubrovnik", "Capri", "St. Moritz", "Bodrum",
     "Antalya", "Rhodes", "Palma", "Malaga", "Brighton", "Bruges", "Salzburg",
     "Cascais", "Funchal", "Split", "Karlovy Vary", "Rimini", "Sliema",
-}
-
-MELLER_STORE_CITIES = {
-    "Madrid", "Barcelona", "Paris", "Berlin", "Milan", "London", "Amsterdam",
-    "Lisbon", "Munich", "Rome", "Vienna", "Copenhagen", "Stockholm",
 }
 
 SUNGLASSES_BRANDS = [

@@ -57,19 +57,19 @@ export default function Sidebar({
                     type="category"
                     dataKey="feature"
                     width={110}
-                    tick={{ fill: '#a1a1aa', fontSize: 11 }}
+                    tick={{ fill: '#999', fontSize: 11 }}
                     axisLine={false}
                     tickLine={false}
                   />
                   <Tooltip
                     contentStyle={{
-                      background: '#1a1a1e',
-                      border: '1px solid #2a2a32',
-                      borderRadius: 8,
-                      color: '#f4f4f5',
+                      background: '#fff',
+                      border: '1px solid #E5E5E5',
+                      borderRadius: 0,
+                      color: '#111',
                     }}
                   />
-                  <Bar dataKey="importance" fill="#c8a96e" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="importance" fill="#FF6723" radius={[0, 2, 2, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -89,7 +89,7 @@ export default function Sidebar({
           <span className={`badge tier-${city.city_tier}`}>Tier {city.city_tier}</span>
           <span className="badge">{formatNumber(city.population)} pop.</span>
           <span className="badge">GDP €{formatNumber(city.gdp_per_capita)}</span>
-          {city.has_existing_store && <span className="badge existing">Meller Store</span>}
+          {city.has_existing_store && <span className="badge existing">MELLER Store</span>}
         </div>
       </div>
 

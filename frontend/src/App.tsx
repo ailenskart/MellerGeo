@@ -140,10 +140,11 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-        <div className="logo">
-          <h1>Meller</h1>
-          <span>Geo Intelligence</span>
-        </div>
+        <a className="logo" href="https://mellerbrand.com" target="_blank" rel="noopener noreferrer">
+          <span className="logo-wordmark">MELLER</span>
+          <span className="logo-divider" />
+          <span className="logo-sub">Geo Intelligence</span>
+        </a>
         <div className="header-search">
           <input
             type="text"
@@ -173,8 +174,8 @@ export default function App() {
             </div>
           )}
           <div className="stat">
-            <div className="stat-label">AI Chat</div>
-            <div className="stat-value">{health?.openai_enabled ? 'Live' : 'Local'}</div>
+            <div className="stat-label">Stores</div>
+            <div className="stat-value">4</div>
           </div>
         </div>
       </header>
@@ -227,6 +228,19 @@ export default function App() {
           )}
         </div>
       </main>
+
+      <footer className="footer">
+        <div>
+          <a href="https://mellerbrand.com" target="_blank" rel="noopener noreferrer">mellerbrand.com</a>
+          {' · '}
+          <a href="https://mellerbrand.com/pages/our-stores" target="_blank" rel="noopener noreferrer">Our Stores</a>
+        </div>
+        <div className="footer-trust">
+          <span><strong>3M+</strong> customers</span>
+          <span>Trustpilot <strong>4.4</strong></span>
+          <span>Google <strong>4.5</strong></span>
+        </div>
+      </footer>
     </div>
   );
 }

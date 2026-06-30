@@ -11,6 +11,7 @@ from app.chat_service import chat
 from app.competitors import analyze_competitors
 from app.data_generator import get_city_features
 from app.google_maps import find_meller_stores, find_nearby_competitors, geocode_address
+from app.meller_stores import BRAND, get_all_stores, get_stores_for_city
 from app.predictor import RevenuePredictor
 from app.schemas import (
     BatchPredictRequest,
@@ -65,6 +66,18 @@ def _predict_for_city(city: dict, store_size_sqm: float = 80) -> RevenuePredicti
     prediction = predictor.predict(params)
     _prediction_cache[cache_key] = prediction
     return prediction
+
+
+@app.get("/api/brand")
+def get_brand():
+    return BRAND
+
+
+@app.get("/api/stores")
+def list_meller_stores(city: str | None = None):
+    if city:
+        return get_stores_for_city(city)
+    return get_all_stores()
 
 
 @app.get("/api/health")
@@ -189,7 +202,7 @@ def get_seasonality(city_id: str, store_size_sqm: float = 80):
 async def lookup_stores(city_id: str):
     import os
     city = _get_city(city_id)
-    meller = await find_meller_stores(city["latitude"], city["longitude"])
+    meller = await find_meller_stores(city["latitude"], city["longitude"], city=city["city"])
     competitors = await find_nearby_competitors(city["latitude"], city["longitude"])
     return StoreLookupResult(
         meller_stores=meller,
@@ -232,7 +245,7 @@ async def chat_endpoint(request: ChatRequest):
                 city["city"], city["country"], tourist_index, city["gdp_per_capita"]
             )
 
-        stores = await find_meller_stores(city["latitude"], city["longitude"])
+        stores = await find_meller_stores(city["latitude"], city["longitude"], city=city["city"])
         context["meller_stores"] = stores
 
     return await chat(request, context)
