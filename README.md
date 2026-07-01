@@ -59,16 +59,22 @@ docker build -t meller-geo .
 docker run -p 8000:8000 meller-geo
 ```
 
-### Deploy to Render (permanent, free tier)
+### Deploy to Render (permanent URL)
 
-1. Push this repo to GitHub
-2. Go to [Render Dashboard](https://dashboard.render.com) → **New** → **Blueprint**
-3. Connect the `MellerGeo` repository and deploy
-4. Set environment variables in Render:
-   - `OPENAI_API_KEY` — enables full LLM chat (optional, falls back to local advisor)
-   - `GOOGLE_MAPS_API_KEY` — enables live store/competitor lookup via Google Places (optional)
+**Your permanent link after deploy:** `https://meller-geo-intelligence.onrender.com`
 
-The included `render.yaml` configures a Docker web service in the Frankfurt region with health checks on `/api/health`.
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/ailenskart/MellerGeo)
+
+1. Click **Deploy to Render** above (or open [dashboard.render.com](https://dashboard.render.com) → **New** → **Blueprint** → connect `MellerGeo`)
+2. When prompted, set environment variables:
+   - `GOOGLE_MAPS_API_KEY` — your Google Maps demo/production key
+   - `OPENAI_API_KEY` — for AI chat and verification (optional)
+3. Click **Apply** — first deploy takes ~5–8 minutes
+4. Open **https://meller-geo-intelligence.onrender.com**
+
+The service auto-redeploys on every push to `main`. Free tier may sleep after 15 min idle (first load ~30s).
+
+> **Note:** Cloudflare `trycloudflare.com` links are temporary dev tunnels only — they change every restart. Use Render for a stable URL.
 
 ## Quick Start
 
