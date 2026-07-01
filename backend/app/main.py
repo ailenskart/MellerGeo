@@ -549,8 +549,9 @@ async def chat_endpoint(request: ChatRequest):
 
 
 STATIC_DIR = Path(__file__).resolve().parents[1] / "static"
+_ON_VERCEL = bool(os.getenv("VERCEL"))
 
-if STATIC_DIR.exists():
+if STATIC_DIR.exists() and not _ON_VERCEL:
     assets_dir = STATIC_DIR / "assets"
     if assets_dir.exists():
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")

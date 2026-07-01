@@ -42,7 +42,21 @@ Per [mellerbrand.com/pages/our-stores](https://mellerbrand.com/pages/our-stores)
 
 ## Hosting
 
-### Production (single server)
+### Deploy to Vercel (recommended — permanent URL)
+
+**Your permanent link after deploy:** `https://meller-geo-intelligence.vercel.app`
+
+1. Go to [vercel.com/new](https://vercel.com/new) and sign in with GitHub
+2. Import the **MellerGeo** repository
+3. Vercel auto-detects settings from `vercel.json` — click **Deploy**
+4. After deploy, open **Settings → Environment Variables** and add:
+   - `GOOGLE_MAPS_API_KEY` — live Maps, competitors, Street View
+   - `OPENAI_API_KEY` — AI chat and verification (optional)
+5. Redeploy from the Deployments tab
+
+Every push to `main` auto-redeploys. Free tier API routes have a 10s timeout; Pro ($20/mo) allows 60s for heavy intelligence calls.
+
+### Production (local single server)
 
 The backend serves both the API and the built React frontend:
 

@@ -4,6 +4,7 @@ __pycache__/
 *.pyo
 node_modules/
 dist/
+public/
 backend/static/
 .env
 backend/.env
