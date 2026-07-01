@@ -42,7 +42,22 @@ Per [mellerbrand.com/pages/our-stores](https://mellerbrand.com/pages/our-stores)
 
 ## Hosting
 
-### Deploy to Vercel (recommended — permanent URL)
+### Deploy to Railway (recommended — best for ML + AI)
+
+**Permanent URL after deploy:** `https://your-app.up.railway.app` (generate in Railway → Networking)
+
+Railway runs the full **Docker** image — no serverless timeouts, sklearn + OpenAI intelligence work out of the box.
+
+1. Open **[railway.app/new](https://railway.app/new)** → sign in with GitHub
+2. **Deploy from GitHub repo** → select **MellerGeo**
+3. Add variables: `GOOGLE_MAPS_API_KEY`, `OPENAI_API_KEY`
+4. **Settings → Networking → Generate Domain**
+
+Config is in `railway.toml` + `Dockerfile`. Auto-redeploys on push to `main`.
+
+See [scripts/deploy-railway.md](scripts/deploy-railway.md) for full steps.
+
+### Deploy to Vercel (frontend + serverless API)
 
 **Your permanent link after deploy:** `https://meller-geo-intelligence.vercel.app`
 
