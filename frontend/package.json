@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build && npm run copy:static",
+    "build:docker": "tsc && vite build",
     "build:vercel": "tsc && vite build --outDir ../public --emptyOutDir",
     "copy:static": "rm -rf ../backend/static && cp -r dist ../backend/static",
     "preview": "vite preview"
